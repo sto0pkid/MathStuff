@@ -3934,6 +3934,27 @@ https://en.wikipedia.org/wiki/Transition_system
       δ : Q × Σ → Q
       ω : Q → Γ
 
+  module MealyMoore where
+   open MealyMachines.MealyMachine1
+   open MooreMachines.MooreMachine1
+   Moore→Mealy : MooreMachine → MealyMachine
+   Moore→Mealy moore =
+    record{
+     Q = Q ;
+     Σ = Σ ;
+     Γ = Γ ;
+     q₀ = q₀ ;
+     δ = δ ;
+     ω = λ p → ω (first p)
+    }
+    where
+     open MooreMachine moore
+
+   {-
+   Mealy→Moore : MealyMachine → MooreMachine
+   Mealy→Moore 
+   -}
+
   -- equivalence of mealy & moore machines
   -- constructing mealy & moore machines by attaching an output function to a semiautomaton.
   -- Equivalence to NDFAs
