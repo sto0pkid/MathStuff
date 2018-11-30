@@ -1977,8 +1977,14 @@ where
   -- Farey sequences
   -- approximation by mediants
 
-
+  -- addition on reals can be defined in terms of the limit addition formula for Cauchy sequences etc..
+    -- http://www.oxfordmathcenter.com/drupal7/node/94
+  -- multiplication on reals can be defined in terms of the limit multiplication formula for Cauchy sequences etc.. 
+    --
+  -- http://tutorial.math.lamar.edu/Classes/CalcI/LimitsProperties.aspx
+  
  -- translation of terminating / repeating real power expansions into Rationals
+ 
 
  module Algebraic where
  -- solutions to polynomial equations
@@ -3391,8 +3397,8 @@ https://en.wikipedia.org/wiki/Transition_system
    open TransitionSystem1
    open LabeledTransitionSystem1
    
-   Theorem1 : TransitionSystem → LabeledTransitionSystem  
-   Theorem1 T = record {S = S; L = ⊤; ⇒ = (λ p a q → ⇒ p q)}
+   UnlabeledToLabeled : TransitionSystem → LabeledTransitionSystem  
+   UnlabeledToLabeled T = record {S = S; L = ⊤; ⇒ = (λ p a q → ⇒ p q)}
     where
      open TransitionSystem T
 
@@ -3660,12 +3666,56 @@ https://en.wikipedia.org/wiki/Transition_system
        Rp'r' = (q' , (R₁p'q' , R₂q'r'))
      Rxz = (y , (R₁xy , R₂yz))
 
+  -- "internal" / "unobservable" actions
+    -- how to formulate this notion?
+  -- weak bisimulation equivalence
+    -- Hennessy Milner Logic
+    -- relation to logical equivalence
+  -- strong bisimulation equivalence
+    -- sensitive to "internal actions"
+  -- trace equivalence
+    -- doesn't preserve deadlock properties
 
   --relational definition of bisimulation
   --fixed-point definition of bisimulation
+    -- how to talk about least and greatest fixed points?
+    -- just like lcm and gcd..; universal properties in general;
+      -- there's a function, f : A → A
+      -- there's a partial order, _≤_ : A → A → Set
+      -- there's a fixedpoint; x = f x
+      -- and its the least/greatest one relative to the order:
+      -- ∀ y : A, (y = f x) → x ≤ y
   --game-theoretical definition of bisimulation
   --coalgebraic definition of bisimulation
   --Simulation preorder
+
+  --transitive closure: →*
+  --inverse relation
+     -- same as converse relation?
+  --composition of relations
+  --reflexive symmetric transitive closure
+  --joinability
+    -- reflexive
+    -- symmetric
+    -- transitive ?
+  --church-rosser property
+  --church-rosser theorem for LC
+  --confluence
+  --semi-confluence
+  --local/weak confluence
+  --Theorem: Church-Rosser property ≡ confluent ≡ semi-confluent
+  --terminating/Noetherian
+  --convergent: confluent + terminating
+  --counterexample showing local/weak confluence ≠ confluence:
+     {-
+       b→c
+       c→b
+       b→a
+       c→d
+     -}
+  --Newman's lemma
+    -- Huet's proof using well-founded induction
+  
   --Van Benthem's theorem: propositional modal logic is the fragment of FOL invariant/closed under bisimulation
 --------------------------------------------------------------
  {-
@@ -3689,6 +3739,15 @@ https://en.wikipedia.org/wiki/Transition_system
      Σ-no-b : ¬ (Σ b)
      q₀ : Q
      F : Q → Set
+     δ : (∃ q ∈ Q , ¬ (F q)) × Γ → Q × (Γ × Bool)
+     -- note: subset theory
+     -- set-theoretic complement:
+       -- Σ-no-b : ¬ (Σ b)
+       -- (∃ q ∈ Q , ¬ (F q))
+     -- Q not necessarily finite
+       -- but q₀ ensures it's non-empty
+     -- Γ not necessarily finite
+       -- but b ensures it's non-empty
   module TuringMachine2 where
    record TuringMachine : Set where
     field
@@ -3794,8 +3853,111 @@ https://en.wikipedia.org/wiki/Transition_system
  Cell automata
 
  Pushdown automaton
+ -}
+-------------------------------------------------------------------
+ {-
  Finite state machine
  -}
+ module FiniteStateAutomaton where
+  open BaseDefinitions.Product
+  open BaseDefinitions.BaseTypes.Nat renaming (Nat to ℕ)
+  open BaseDefinitions.BaseTypes.Fin
+  open BaseDefinitions.BaseTypes.Fin.Operations
+  module DFA1 where
+   record DFA : Set₁ where
+    field
+     Q : Set                         -- set of states Q
+                                       -- must be finite
+                                       -- non-emptiness guaranteed by q₀
+     Σ : Set                         -- input alphabet
+                                       -- must be finite
+                                       -- must be non-empty
+     q₀ : Q
+     F : Q → Set                     -- accepting states
+     δ : Q × Σ → Q
+   module DFAProperties where
+    open BaseDefinitions.Equality.Definition
+    open TransitionSystem.LabeledTransitionSystem1
+    DFA→LTS : DFA → LabeledTransitionSystem
+    DFA→LTS dfa = record { S = Q ; L = Σ ; ⇒ = λ x l x' → (δ (x , l) ≡ x)}
+     where
+      open DFA dfa
+  module DFA2 where
+   record DFA : Set where
+    field
+     Q : ℕ
+     Σ : ℕ
+     q₀ : Fin (suc Q)
+     F : Fin (suc Q)
+     δ : (Fin (suc Q)) × (Fin (suc Σ)) → (Fin (suc Q))
+   -- semiautomata
+
+   module DFAProperties where
+    open BaseArithmetic.Relations
+    open DFA1 renaming (DFA to DFA1)
+    DFA→DFA1 : DFA → DFA1
+    DFA→DFA1 dfa =
+     record{
+      Q = Fin (suc Q) ;
+      Σ = Fin (suc Σ) ;
+      q₀ = q₀ ;
+      F = λ q → ℕ[ q ] ≤ ℕ[ F ] ;
+      δ = δ
+     }
+     where
+      open DFA dfa
+  module MealyMachines where
+   module MealyMachine1 where
+    record MealyMachine : Set₁ where
+     field
+      Q : Set                    -- states
+                                   -- must be finite
+                                   -- non-emptiness ensured by q₀
+      Σ : Set                    -- input alphabet
+                                   -- must be finite
+                                   -- must be non-empty
+      Γ : Set                    -- output alphabet
+                                   -- must be finite
+                                   -- must be non-empty
+      q₀ : Q                     -- start state
+      δ : Q × Σ → Q             -- state-transition function
+      ω : Q × Σ → Γ             -- output function
+
+  module MooreMachines where
+   module MooreMachine1 where
+    record MooreMachine : Set₁ where
+     field
+      Q : Set
+      Σ : Set
+      Γ : Set
+      q₀ : Q
+      δ : Q × Σ → Q
+      ω : Q → Γ
+
+  -- equivalence of mealy & moore machines
+  -- constructing mealy & moore machines by attaching an output function to a semiautomaton.
+  -- Equivalence to NDFAs
+  -- closure under:
+   -- union
+   -- intersection
+   -- concatenations
+   -- negation
+   -- Kleene closure
+   -- Reversal
+   -- Init
+   -- Quotient
+   -- Substitution
+   -- Homomorphism
+  -- recognizing regular languages /  regexes
+  -- DFA minimization
+    -- hopcroft minimization algorithm
+  -- inability of DFA to recognize Dyck/parentheses language
+  -- Mealy machines
+  -- Moore machines
+  -- UML state machines
+    -- as in Unified Modeling Language
+  -- SDL state machines
+    -- as in Specification and Description Language
 
  {-
  Turing completeness
