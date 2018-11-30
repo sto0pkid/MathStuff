@@ -48,7 +48,7 @@ $Q_{8}$ seems unnecessary. It is if we just say $x < y$ by saying $\exists z , (
 
 $\mathbf{Q}$ shouldn't be able to define transitive closure though. Yet, $\mathbf{FOL}\{\mathbb{N},+, = \}$ can define $<$ as the transitive closure of $\mathbf{s}$ as $\exists z , ((\mathbf{s}\ z) + x) = y$? No, the other possibility is that $\mathbf{FOL}$ model theory does not constrain it to only represent the transitive closure and not something larger. We can't express that the path of $s$s starts from $0$.
 
-
+\newpage
 \section{Redefining Q}
 \paragraph{}
 Operations of arity $n$ represented as relations of arity $n+1$.
@@ -127,7 +127,7 @@ So, $\exists z, (\mathbf{s}\ x \ z) \land (\mathbf{s}\ x\ z)$
 \paragraph{}
 So, $\forall x, (+\ x\ 0\ x)$ 
 
-
+\newpage
 \section{Version 3}
 \paragraph{}
 Curry the $\land$s into $\rightarrow$s
@@ -194,7 +194,7 @@ Composition
 \paragraph{}
 Regular minimization
 
-
+\newpage
 \section{Version 4}
 
 $\neg(+\ x\ 0\ 0)$ to be represented as $\exists y y', (\mathbf{s}\ y\ y') \land (+\ y'\ 0\ x)$. Only one negation operation used in the axioms now. 
@@ -245,7 +245,7 @@ $(+\ y'\ 0\ x)$
 
 $\mathbf{s} .. x$
 
-
+\newpage
 \section{Version 5}
 \paragraph{}
 \begin{tabular}{l | r}
@@ -275,6 +275,50 @@ $\mathbf{s} .. x$
 \section{A function is representable in $\mathbf{Q}$ if and only if it is computable}
 
 \section{Decidability}
+
+\section{Deductive systems for classical propositional logic}
+
+\newpage
+\subsection{Frege}
+\paragraph{}
+\textbf{Rules:}
+
+$A, A \rightarrow B \vdash B$
+
+\paragraph{}
+\textbf{Axioms:}
+
+$A \rightarrow (B \rightarrow A)$
+
+$(A \rightarrow (B \rightarrow C)) \rightarrow ((A \rightarrow B) \rightarrow (A \rightarrow C))$
+
+$(A \rightarrow B) \rightarrow (\neg B \rightarrow \neg A)$
+
+$\neg \neg A \rightarrow A $
+
+$A \rightarrow \neg \neg A$
+
+
+Proof of completeness?
+
+\subsection{Hilbert's axiom system}
+\paragraph{}
+\textbf{Rules:}
+
+$A, A \rightarrow B \vdash B$
+
+\paragraph{}
+\textbf{Axioms:}
+
+$A \rightarrow (B \rightarrow A)$
+
+$(A \rightarrow (B \rightarrow C)) \rightarrow (B \rightarrow (A \rightarrow C))$
+
+$(B \rightarrow C) \rightarrow ((A \rightarrow B) \rightarrow (A \rightarrow C))$
+
+$A \rightarrow (\neg A \rightarrow B)$
+
+$(A \rightarrow B) \rightarrow ((\neg A \rightarrow B) \rightarrow B)$
 
 \section{References}
 [1] http://openlogicproject.org/files/2017/02/phil479-screen.pdf

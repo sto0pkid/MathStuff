@@ -3002,6 +3002,8 @@ module Computability where
  Mu recursive function
  Post canonical system
  Queue automata
+ Transition system
+ Labeled transition system
  Cell automata
  Pushdown automata
  Primitive recursive functions
@@ -3350,15 +3352,370 @@ turing completeness achieved by adding external feedback to the FSM, i.e. the in
 
 --------------------------------------------------------------
 
+--------------------------------------------------------------
+{-
+State transition system:
+https://en.wikipedia.org/wiki/Transition_system
 
+-}
+
+ module TransitionSystem where
+  module TransitionSystem1 where
+   record TransitionSystem : Set₁ where
+    field
+     S : Set
+     ⇒ : S → S → Set
+  -- aka (Unindexed) Abstract Rewriting System
+  -- aka (Unlabeled) Directed Graph
+  -- aka Set with binary relation
+
+  module LabeledTransitionSystem1 where
+   record LabeledTransitionSystem : Set₁ where
+    field
+     S : Set
+     L : Set
+     ⇒ : S → L → S → Set
+     
+   -- aka Indexed Abstract Rewriting System
+   -- aka Labeled Directed Graph
+   
+   -- Every labelled state transition system {S,L,→} is bijectively a function
+   -- ξ from S to ℙ[L × S] (the powerset of "S indexed by L")
+   -- ?
+
+
+  module Properties where
+   open BaseDefinitions.Product
+   open BaseDefinitions.BaseTypes.Unit
+   open BaseDefinitions.Equality.Definition
+   open TransitionSystem1
+   open LabeledTransitionSystem1
+   
+   Theorem1 : TransitionSystem → LabeledTransitionSystem  
+   Theorem1 T = record {S = S; L = ⊤; ⇒ = (λ p a q → ⇒ p q)}
+    where
+     open TransitionSystem T
+
+
+   isSimulationRelation :
+    (lts : LabeledTransitionSystem) →
+     let S = LabeledTransitionSystem.S lts in
+     let L = LabeledTransitionSystem.L lts in
+     (R : S → S → Set) → Set
+   isSimulationRelation lts R = (x y : S) → R x y →  (x' : S) → (l : L) → (⇒ x l x') → ∃ y' ∈ S , ((⇒ y l y') ∧ (R x' y')) 
+    where
+     open LabeledTransitionSystem lts
+
+
+   simulates :
+    (lts : LabeledTransitionSystem) →
+     let S = LabeledTransitionSystem.S lts in
+     (x y : S) → Set₁
+   simulates lts x y = ∃ R ∈ (S → S → Set) , ((isSimulationRelation lts R) ∧ (R x y))
+    where
+     open LabeledTransitionSystem lts
+
+   -- show that (lts : LabeledTransitionSystem) → isPreorder (simulates lts)
+   
+   simulates-refl :
+    (lts : LabeledTransitionSystem) →
+     let S = LabeledTransitionSystem.S lts in
+     (x : S) → simulates lts x x
+   simulates-refl lts x = (R , (isSim-R , Rxx))
+    where
+     open LabeledTransitionSystem lts
+
+     R : S → S → Set
+     R p q = p ≡ q
+
+     isSim-R : isSimulationRelation lts R
+     isSim-R p .p refl p' l ⇒plp' = (p' , (⇒plp' , refl))
+
+     Rxx : R x x
+     Rxx = refl
+   
+
+   simulates-trans :
+    (lts : LabeledTransitionSystem) →
+     let S = LabeledTransitionSystem.S lts in
+     (x y z : S) → simulates lts x y → simulates lts y z → simulates lts x z
+   simulates-trans lts x y z (R₁ , (isSim-R₁ , R₁xy)) (R₂ , (isSim-R₂ , R₂yz)) = (R , (isSim-R , Rxz))
+    where
+     open LabeledTransitionSystem lts
+     
+     R : S → S → Set
+     R p r = ∃ q ∈ S , ((R₁ p q) ∧ (R₂ q r))
+
+     {-
+     lemma1 : ∃ y' ∈ S , ((⇒ y l y') ∧ (R x' y'))
+     lemma1 = isSim-R₁ x y R₁xy x' l ⇒plp' ?
+
+     lemma2 : ∃ z' ∈ S , ((⇒ z l z') ∧ (R y' z'))
+     lemma2 = isSim-R₂ y z R₂yz
+     -}     
+
+     isSim-R : isSimulationRelation lts R
+     isSim-R p q Rpq p' l ⇒plp' = ( q' , (⇒qlq' , Rp'q'))
+      where
+       lemma3 : ∃ r ∈ S , ((R₁ p r) ∧ (R₂ r q))
+       lemma3 = Rpq
+
+       r : S
+       r = π₁ lemma3
+
+       R₁pr : R₁ p r
+       R₁pr = first (π₂ lemma3)
+
+       R₂rq : R₂ r q
+       R₂rq = second (π₂ lemma3)
+
+       lemma4 : ∃ r' ∈ S , ((⇒ r l r') ∧ (R₁ p' r'))
+       lemma4 = isSim-R₁ p r R₁pr p' l ⇒plp'
+
+       r' : S
+       r' = π₁ lemma4
+
+       ⇒rlr' : ⇒ r l r'
+       ⇒rlr' = first (π₂ lemma4)
+
+       R₁p'r' : R₁ p' r'
+       R₁p'r' = second (π₂ lemma4)
+
+       lemma5 : ∃ q' ∈ S , ((⇒ q l q') ∧ (R₂ r' q'))
+       lemma5 = isSim-R₂ r q R₂rq r' l ⇒rlr'
+
+
+       q' = π₁ lemma5
+
+       R₂r'q' : R₂ r' q'
+       R₂r'q' = second (π₂ lemma5)
+
+       ⇒qlq' = first (π₂ lemma5)
+       Rp'q' = (r' , (R₁p'r' , R₂r'q'))
+     
+     Rxz : R x z
+     Rxz = (y , (R₁xy , R₂yz))
+
+  -- "simulates lts" is the largest simulation relation over lts
+  -- note how the definitions need to be relativized to the universe hierarchy
+  --
+   similar :
+    (lts : LabeledTransitionSystem) →
+     let S = LabeledTransitionSystem.S lts in
+     (x y : S) → Set₁
+   similar lts x y = (simulates lts x y) ∧ (simulates lts y x)
+
+   similar-refl :
+    (lts : LabeledTransitionSystem) →
+     let S = LabeledTransitionSystem.S lts in
+     (x : S) → similar lts x x
+   similar-refl lts x = (simulates-refl lts x , simulates-refl lts x)
+
+   similar-symm :
+    (lts : LabeledTransitionSystem) →
+     let S = LabeledTransitionSystem.S lts in
+     (x y : S) → similar lts x y → similar lts y x
+   similar-symm lts x y (p , q) = q , p
+
+   similar-trans :
+    (lts : LabeledTransitionSystem) →
+     let S = LabeledTransitionSystem.S lts in
+     (x y z : S) → similar lts x y → similar lts y z → similar lts x z
+   similar-trans lts x y z (p₁ , q₁) (p₂ , q₂) = (simulates-trans lts x y z p₁ p₂ , simulates-trans lts z y x q₂ q₁)
+
+  -- similarity of separate transition systems
+  {-
+   When comparing two different transition systems (S', Λ', →') and (S", Λ", →"), the basic notions of simulation and similarity can be used by forming the disjoint composition of the two machines, (S, Λ, →) with S = S' ∐ S", Λ = Λ' ∪ Λ" and → = →' ∪ →", where ∐ is the disjoint union operator between sets. 
+  -}
+
+  --Bisimulation
+   isBisimulationRelation :
+    (lts : LabeledTransitionSystem) →
+     let S = LabeledTransitionSystem.S lts in
+     let L = LabeledTransitionSystem.L lts in
+     (R : S → S → Set) → Set
+   isBisimulationRelation lts R = ((x y : S) → R x y → (x' : S) → (l : L) → (⇒ x l x') → ∃ y' ∈ S , ((⇒ y l y') ∧ (R x' y'))) ∧ ((x y : S) → R x y → (y' : S) → (l : L) → (⇒ y l y') → ∃ x' ∈ S , ((⇒ x l x') ∧ (R x' y')))
+    where
+     open LabeledTransitionSystem lts
+
+   bisimilar :
+    (lts : LabeledTransitionSystem) →
+     let S = LabeledTransitionSystem.S lts in
+     (x y : S) → Set₁
+   bisimilar lts x y = ∃ R ∈ (S → S → Set) , ((isBisimulationRelation lts R) ∧ (R x y))
+    where
+     open LabeledTransitionSystem lts
+
+   bisimilar-refl :
+    (lts : LabeledTransitionSystem) →
+     let S = LabeledTransitionSystem.S lts in
+     (x : S) → bisimilar lts x x
+   bisimilar-refl lts x = (_≡_ , ((left , right) , refl ))
+    where
+     open LabeledTransitionSystem lts
+     
+     left : (x y : S) → x ≡ y → (x' : S) → (l : L) → (⇒ x l x') → ∃ y' ∈ S , ((⇒ y l y') ∧ (x' ≡ y'))
+     left x .x refl x' l ⇒xlx' = (x' , (⇒xlx' , refl))
+
+     right : (x y : S) → x ≡ y → (y' : S) → (l : L) → (⇒ y l y') → ∃ x' ∈ S , ((⇒ x l x') ∧ (x' ≡ y'))
+     right x .x refl x' l ⇒xlx' = (x' , (⇒xlx' , refl))
+
+   -- converse relations
+  -- counter-examples of mutual simulation but no bisimulation:
+
+   bisimilar-symm :
+    (lts : LabeledTransitionSystem) →
+     let S = LabeledTransitionSystem.S lts in
+     (x y : S) → bisimilar lts x y → bisimilar lts y x
+   bisimilar-symm lts x y (R , ((left , right) , Rxy)) = (R' , ((left' , right') , R'yx))
+    where
+     open LabeledTransitionSystem lts
+
+     R' : S → S → Set
+     R' x y = R y x
+
+     left' : (x y : S) → R' x y → (x' : S) → (l : L) → (⇒ x l x') → ∃ y' ∈ S , ((⇒ y l y') ∧ (R' x' y'))
+     left' x y R'xy x' l ⇒xlx' = right y x R'xy x' l ⇒xlx'
+     
+     right' : (x y : S) → R' x y → (y' : S) → (l : L) → (⇒ y l y') → ∃ x' ∈ S , ((⇒ x l x') ∧ (R' x' y'))
+     right' x y R'xy y' l ⇒yly' = left y x R'xy y' l ⇒yly'
+     
+     R'yx : R' y x
+     R'yx = Rxy
+
+   bisimilar-trans :
+    (lts : LabeledTransitionSystem) →
+     let S = LabeledTransitionSystem.S lts in
+     (x y z : S) → bisimilar lts x y → bisimilar lts y z → bisimilar lts x z
+   bisimilar-trans lts x y z (R₁ , ((left₁ , right₁) , R₁xy)) (R₂ , ((left₂ , right₂) , R₂yz)) = (R , ((left , right) , Rxz))
+    where
+     open LabeledTransitionSystem lts
+     R : S → S → Set
+     R p r = ∃ q ∈ S , ((R₁ p q) ∧ (R₂ q r))
+
+     {-
+     lemma1 : (p q : S) → R₁ p q → (p' : S) → (l : L) → (⇒ p l p') → ∃ q' ∈ S , ((⇒ q l q') , (R₁ p' q'))
+     lemma1 = left₁
+     -}
+
+     left : (x y : S) → R x y → (x' : S) → (l : L) → (⇒ x l x') → ∃ y' ∈ S , ((⇒ y l y') ∧ (R x' y'))
+     left p r (q , (R₁pq , R₂qr)) p' l ⇒plp' = (r' , (⇒rlr' , Rp'r'))
+      where
+       lemma1 : ∃ q' ∈ S , ((⇒ q l q') ∧ (R₁ p' q'))
+       lemma1 = left₁ p q R₁pq p' l ⇒plp'     
+
+       q' : S
+       q' = π₁ lemma1
+       
+       ⇒qlq' : ⇒ q l q'
+       ⇒qlq' = first (π₂ lemma1)
+       
+       R₁p'q' : R₁ p' q'
+       R₁p'q' = second (π₂ lemma1)
+
+       lemma2 : ∃ r' ∈ S , ((⇒ r l r') ∧ (R₂ q' r'))
+       lemma2 = left₂ q r R₂qr q' l ⇒qlq'
+
+       r' : S
+       r' = π₁ lemma2
+       
+       ⇒rlr' : ⇒ r l r'
+       ⇒rlr' = first (π₂ lemma2)
+
+       R₂q'r' : R₂ q' r'
+       R₂q'r' = second (π₂ lemma2)
+
+       Rp'r' : R p' r'
+       Rp'r' = (q' , (R₁p'q' , R₂q'r'))
+     
+     right : (x y : S) → R x y → (y' : S) → (l : L) → (⇒ y l y') → ∃ x' ∈ S , ((⇒ x l x') ∧ (R x' y'))
+     right p r (q , (R₁pq , R₂qr)) r' l ⇒rlr' = (p' , (⇒plp' , Rp'r'))
+      where
+       lemma1 : ∃ q' ∈ S , ((⇒ q l q') ∧ (R₂ q' r'))
+       lemma1 = right₂ q r R₂qr r' l ⇒rlr'
+
+       q' : S
+       q' = π₁ lemma1
+
+       ⇒qlq' : ⇒ q l q'
+       ⇒qlq' = first (π₂ lemma1)
+
+       R₂q'r' : R₂ q' r'
+       R₂q'r' = second (π₂ lemma1)
+
+       lemma2 : ∃ p' ∈ S , ((⇒ p l p') ∧ (R₁ p' q'))
+       lemma2 = right₁ p q R₁pq q' l ⇒qlq'
+
+       p' : S
+       p' = π₁ lemma2
+       
+       ⇒plp' : ⇒ p l p'
+       ⇒plp' = first (π₂ lemma2)
+
+       R₁p'q' : R₁ p' q'
+       R₁p'q' = second (π₂ lemma2)
+
+
+       Rp'r' : R p' r'
+       Rp'r' = (q' , (R₁p'q' , R₂q'r'))
+     Rxz = (y , (R₁xy , R₂yz))
+
+
+  --relational definition of bisimulation
+  --fixed-point definition of bisimulation
+  --game-theoretical definition of bisimulation
+  --coalgebraic definition of bisimulation
+  --Simulation preorder
+  --Van Benthem's theorem: propositional modal logic is the fragment of FOL invariant/closed under bisimulation
 --------------------------------------------------------------
  {-
   Turing machine:
   https://en.wikipedia.org/wiki/Turing_machine
  -}
  module TuringMachine where
+  open BaseDefinitions.Sum
+  open BaseDefinitions.Product
+  open BaseDefinitions.Negation.Definition
+  open BaseDefinitions.BaseTypes.Nat renaming (Nat to ℕ)
+  open BaseDefinitions.BaseTypes.Bool
+  open BaseDefinitions.BaseTypes.Fin
+  module TuringMachine1 where
+   record TuringMachine : Set₁ where
+    field
+     Q : Set
+     Γ : Set
+     b : Γ
+     Σ : Γ → Set
+     Σ-no-b : ¬ (Σ b)
+     q₀ : Q
+     F : Q → Set
+  module TuringMachine2 where
+   record TuringMachine : Set where
+    field
+     NF : ℕ   -- number of non-final states
+     Γ : ℕ
+     -- b : Γ; b = some Fin (suc Γ); can define b as Γ and Σ as some Fin Γ
+     -- Σ : subset of Γ without b
+     Σ : Fin Γ
+     -- q₀ : Q; q₀ = some Fin (suc Q); can define q₀ as Q
+     -- F : subset of Q; could include b
+     F : ℕ    -- number of final states
+     q₀ : (Fin NF) ∨ (Fin F)
+     δ : (Fin NF) × Fin (suc Γ) → ((Fin NF) ∨ (Fin F)) × (Fin (suc Γ) × Bool)
+     
+    
+    
 
 -- minimal Turing complete turing machine
+-- super-Turing computability:
+-- https://www.univ-orleans.fr/lifo/Members/Jerome.Durand-Lose/Recherche/Publications/2008_UC_WorkPC.pdf
+-- Bekenstein bound: https://en.wikipedia.org/wiki/Bekenstein_bound
+-- Bremermann's limit: https://en.wikipedia.org/wiki/Bremermann%27s_limit
+-- Black-hole information paradox : https://en.wikipedia.org/wiki/Black_hole_information_paradox
+-- Holographic principle: https://en.wikipedia.org/wiki/Holographic_principle
+-- Malament-Hogarth spacetime: https://en.wikipedia.org/wiki/Malament%E2%80%93Hogarth_spacetime
+-- Kerr metric: https://en.wikipedia.org/wiki/Kerr_metric
+-- A programming language for Turing machines: https://web.stanford.edu/class/archive/cs/cs103/cs103.1132/lectures/19/Small19.pdf
 
 --------------------------------------------------------------
  {-
@@ -3396,6 +3753,16 @@ turing completeness achieved by adding external feedback to the FSM, i.e. the in
      Σ : Fin Γ                       -- input alphabet; specified as some subset of the set of Nats from 0 to Γ - 1
      δ : Q × Fin (suc Γ) → Q × List (Fin (suc Γ))         -- transition function
 
+  module QueueAutomaton3 where
+   record QueueAutomaton : Set where
+    field
+     Q : ℕ                          -- set of states;
+                                    -- start state = Q
+     Γ : ℕ                         -- queue alphabet;
+                                    -- initial queue symbol = Γ
+     Σ : Fin Γ
+     δ : Fin (suc Q) × Fin (suc Γ) → Fin (suc Q) × List (Fin (suc Γ))
+
   -- while that fixes the problems of the previous example, it's still a bit too specific
   -- ideally we would encompass everything that can reasonably satisfy the queue automaton conditions
   -- so we should probably assume that our alphabets can be any finite sets with a decidable equality
@@ -3405,7 +3772,7 @@ turing completeness achieved by adding external feedback to the FSM, i.e. the in
   -- finiteness, infiniteness, cardinality etc..
   -- similarly we may want to adjust what we mean when we say that the set has decidable equality
   -- so let's abstract over that as well
-  module QueueAutomaton3 where
+  module QueueAutomaton4 where
    record QueueAutomaton {i} : Set (lsuc i) where
     field
      Q : Set i                                                   -- set of states
