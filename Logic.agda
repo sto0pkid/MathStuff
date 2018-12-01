@@ -2801,19 +2801,101 @@ module Equivalence where
 
 module Sets where
  module PropositionalSets where
-  Subset : ∀ {i} (A : Set i) → Set ((lsuc lzero) ⊔ i)
-  Subset {i} A = A → Set
+  open BaseDefinitions.Void
+  open BaseDefinitions.Negation.Definition
+  open BaseDefinitions.Product
+  open BaseDefinitions.Sum
+  open BaseDefinitions.Equality.Definition
+  open BaseDefinitions.BaseTypes.Unit
+  Subset : ∀ {i j} (A : Set i) → Set ((lsuc j) ⊔ i)
+  Subset {i} {j} A = A → Set j
 
  -- finite sets with HITs
  -- https://dl.acm.org/citation.cfm?id=3167085
- 
+
+  _⊆_ : ∀ {i j} {A : Set i} (X Y : Subset {i} {j} A) → Set (i ⊔ j)
+  _⊆_ {i} {j} {A} X Y = (a : A) → X a → Y a
+
+  _∈_ : ∀ {i j} {A : Set i} → A → (X : Subset {i} {j} A) → Set j
+  a ∈ X = X a
+
+  _-_ : ∀ {i j} {A : Set i} → Subset {i} {j} A → A → Subset {i} {(i ⊔ j)} A
+  (X - a) x = (X x) ∧ (x ≠ a)
+
+  _∪_ : ∀ {i j k} {A : Set i} → Subset {i} {j} A → Subset {i} {k} A → Subset {i} {(j ⊔ k)} A
+  (A ∪ B) x = (A x) ∨ (B x)
+
+  _∩_ : ∀ {i j k} {A : Set i} → Subset {i} {j} A → Subset {i} {k} A → Subset {i} {(j ⊔ k)} A
+  (A ∩ B) x = (A x) ∧ (B x)
+
+  _ᶜ : ∀ {i j} {A : Set i} → Subset {i} {j} A → Subset {i} {j} A
+  (A ᶜ) x = ¬ (A x)
+
+  -- A \ B = A ∩ (B ᶜ)
+
+  FullSubset : ∀ {i} (A : Set i) → Subset {i} {lzero} A
+  FullSubset A x = ⊤
+
+  EmptySubset : ∀ {i} (A : Set i) → Subset {i} {lzero} A
+  EmptySubset A x = ⊥
 
  module BooleanSets where
+  open BaseDefinitions.Equality.Definition
   open BaseDefinitions.BaseTypes.Bool
+  open Boolean.Operations
+  open PropositionalSets using (Subset)
   subset : ∀ {i} (A : Set i) → Set i
   subset {i} A = A → Bool
- 
 
+  _⊆_ : ∀ {i} {A : Set i} (X Y : subset A) → Set i
+  _⊆_ {i} {A} X Y = (a : A) → (X a ≡ true) → (Y a ≡ true)
+
+  subset→Subset : ∀ {i} {A : Set i} → subset A → Subset A
+  subset→Subset {i} {A} X a = X a ≡ true
+     -- Dedekind infiniteness: the existence of a bijection between it and some proper subset of itself
+
+  _∈_ : ∀ {i} {A : Set i} → A → (X : subset A) → Bool
+  a ∈ X = X a
+
+  _∪_ : ∀ {i} {A : Set i} → (X Y : subset A) → subset A
+  (X ∪ Y) x = (X x) or (Y x)
+
+  _∩_ : ∀ {i} {A : Set i} → (X Y : subset A) → subset A
+  (X ∩ Y) x = (X x) and (Y x)
+
+  {-
+  -- can only do this for sets with decidable equality!
+  _-_ : ∀ {i} {A : Set i} → (X : subset A) → A → subset A
+  (X - a) x = (X x) and (not (x == a))
+  -}
+
+  _ᶜ : ∀ {i} {A : Set i} → subset A → subset A
+  (A ᶜ) x = not (A x) 
+
+  fullsubset : ∀ {i} (A : Set i) → subset A
+  fullsubset A x = true
+
+  emptysubset : ∀ {i} (A : Set i) → subset A
+  emptysubset A x = false
+
+ module FunctionalSets where
+  open BaseDefinitions.Product
+  open BaseDefinitions.Equality.Definition
+  open Functions.Predicates
+  open PropositionalSets
+  subset : ∀ {i} (A : Set i) → Set ((lsuc lzero) ⊔ i)
+  subset {i} A = ∃ B ∈ Set , (∃ f ∈ (B → A) , (Injective f))
+
+
+  -- how to do set operations with these?
+  -- one way is to map them to Subset where we have the operations already defined:
+  subset→Subset : ∀ {i} {A : Set i} → subset A → Subset A
+  subset→Subset {i} {A} (B , (f , f-inj)) a = ∃ b ∈ B , ((f b) ≡ a)
+
+  {-
+  _⊆_ : ∀ {i j} (A : Set i) (B : Set j) → Set (i ⊔ j)
+  A ⊆ B = ∃ f ∈ (A → B) , (Injective f) 
+  -}
 module Multiset where
 -- Coq stdpp apparently has something like a multiset?
 -- https://gitlab.mpi-sws.org/iris/stdpp
@@ -2835,7 +2917,7 @@ module Multiset where
 -- http://www.eelis.net/research/math-classes/mscs.pdf
 
 
-
+-----------------------------------------------------------------------------------------
 module Cardinality where
  {-
  -- bijection as 1-1 correspondence; 
@@ -2855,25 +2937,107 @@ module Cardinality where
  -- S is empty or every partial ordering of S contains a maximal element
  -- Dedekind infiniteness: the existence of a bijection between it and some proper subset of itself
 -}
----------------------------------------------------------------------------------------
- module ListabilityFiniteness where
-  open BaseDefinitions.Equality.Definition
-  open BaseDefinitions.Product
-  open BaseDefinitions.BaseTypes.List
-  {-
-  Finite : ∀ {i} (A : Set i) → Set i
-  Finite A = ∃ l ∈ (List A) , ((x : A) → ((x ∈ l) ∧ ((y : A) → (y ∈ l - x) → x ≠ y)))
-  -}
-  -- highly dependent on relationships between sets, Lists, and Nats
-  -- how to define the x ∈ l relationship?
-  -- how to define the l - x operation?
-  -- certainly can't be based on the value of x, it has to be based on that particular *occurrence*
-  -- of x in this list, essentially based on position
-  
+
+{-
+    I-finite. Every non-empty set of subsets of S has a ⊆-maximal element. 
+         This is equivalent to requiring the existence of a ⊆-minimal element. 
+         It is also equivalent to the standard numerical concept of finiteness.
+
+    Ia-finite. For every partition of S into two sets, at least one of the two sets is I-finite.
+
+    II-finite. Every non-empty ⊆-monotone set of subsets of S has a ⊆-maximal element.
+
+    III-finite. The power set P(S) is Dedekind finite.
+
+    IV-finite. S is Dedekind finite.
+
+    V-finite. ∣S∣ = 0 or 2⋅∣S∣ > ∣S|.
+
+    VI-finite. ∣S∣ = 0 or ∣S∣ = 1 or ∣S∣2 > ∣S∣.
+
+    VII-finite. S is I-finite or not well-orderable.
+-}
+ 
+ ---------------------------------------------------------------------------------------
+ module Finiteness where
+  module I-finiteness where
+   -- Every non-empty set of subsets of S has a ⊆-maximal element.
+   -- Define:
+    -- subsets of A
+      -- A → Set ?
+      -- A → Bool ?
+      -- A' → A?
+    -- set of subsets
+    -- ⊆ relation between subsets
+    -- ⊆-maximality property
+    
+
+  module Ia-finiteness where
+   open I-finiteness
+
+  module II-finiteness where
+
+  module III-finiteness where
+
+  module IV-finiteness where
+   -- Dedekind infiniteness: the existence of a bijection between it and some proper subset of itself
+   open Functions.Predicates renaming (Injective to _isEmbedding; Surjective to _isCovering)
+   Finite : ∀ {i} (A : Set i) → Set i
+   Finite A = (f : A → A) → f isEmbedding → f isCovering
+ 
+
+  module V-finiteness where
+
+  module VI-finiteness where
+
+  module VII-finiteness where
+   open I-finiteness
+   
+   
+  module ListabilityFiniteness where
+   open BaseDefinitions.Equality.Definition
+   open BaseDefinitions.Product
+   open BaseDefinitions.BaseTypes.List
+   {-
+   Finite : ∀ {i} (A : Set i) → Set i
+   Finite A = ∃ l ∈ (List A) , ((x : A) → ((x ∈ l) ∧ ((y : A) → (y ∈ l - x) → x ≠ y)))
+   -}
+   -- highly dependent on relationships between sets, Lists, and Nats
+   -- how to define the x ∈ l relationship?
+   -- how to define the l - x operation?
+   -- certainly can't be based on the value of x, it has to be based on that particular *occurrence*
+   -- of x in this list, essentially based on position
+   -- we don't need values to occur in the List uniquely; non-uniqueness does not affect the determination of finteness
+   
+
+  module FinFiniteness where
+   open BaseDefinitions.Product
+   open BaseDefinitions.BaseTypes.Nat renaming (Nat to ℕ)
+   open BaseDefinitions.BaseTypes.Fin
+   open Functions.Predicates
+
+   Finite : ∀ {i} (A : Set i) → Set i
+   Finite A = ∃ n ∈ ℕ , (∃ f ∈ (Fin n → A) , Bijective f)
+   
+
  module Special where
- -- empty
- -- singleton
+  open BaseDefinitions.Product
+  open BaseDefinitions.Negation.Definition
+  open BaseDefinitions.Equality.Definition
+  -- empty
+  Empty : ∀ {i} (A : Set i) → Set i
+  Empty A = ¬ A
+  -- bijection with Fin 0
+  -- injection to Singletons
+  -- no surjection to Singletons
+  -- no injection from Singletons
+  -- no surjection from Singletons
+  
+  -- singleton
+  Singleton : ∀ {i} (A : Set i) → Set i
+  Singleton A = ∃ x ∈ A , ((y : A) → x ≡ y)
  -- n element
+  -- Fin n ?
  -- aleph_0 = first countable infinity = size of Nat
  -- cardinality of continuum = size of Real
  
@@ -3923,6 +4087,11 @@ https://en.wikipedia.org/wiki/Transition_system
       δ : Q × Σ → Q             -- state-transition function
       ω : Q × Σ → Γ             -- output function
 
+   module MealyMachine2 where
+    record MealyMachine : Set₁ where
+     field
+      Q : Set
+
   module MooreMachines where
    module MooreMachine1 where
     record MooreMachine : Set₁ where
@@ -3933,8 +4102,22 @@ https://en.wikipedia.org/wiki/Transition_system
       q₀ : Q
       δ : Q × Σ → Q
       ω : Q → Γ
+   {-
+   module MooreMachine2 where
+    record MooreMachine : Set₁ where
+     field
+      Q : Set
+      Q-fin : Finite Q
+      q₀ : Q
+      Σ : Set
+      Σ-fin : Finite Σ
+      Σ₀ : Σ
+      Γ : Set
+      Γ-fin : Finite Γ
+   -} 
+      
 
-  module MealyMoore where
+  module MooreToMealy where
    open MealyMachines.MealyMachine1
    open MooreMachines.MooreMachine1
    Moore→Mealy : MooreMachine → MealyMachine
@@ -3949,10 +4132,17 @@ https://en.wikipedia.org/wiki/Transition_system
     }
     where
      open MooreMachine moore
-
+     
+  module MealyToMoore where
    {-
    Mealy→Moore : MealyMachine → MooreMachine
-   Mealy→Moore 
+   Mealy→Moore mealy =  
+    record {
+     Q = Q ;
+     Σ = Σ ;
+     Γ = Γ ;
+     q₀ = q₀ ;
+    } 
    -}
 
   -- equivalence of mealy & moore machines
@@ -4173,5 +4363,19 @@ someLemma {i} {j} {k} {W} {_R_} P w ( ¬[]P→¬[]¬¬P , ¬[]¬¬P→¬[]P ) []
 
 
   \x.\y.\p.p x y
+
+-}
+
+---------------------------------------------------
+{-
+Algebraic data-types
+Generalized algebraic data-types
+Inductive types
+Induction-recursion
+Induction-induction
+Coinductive types
+
+Inductive types as least fixed-points
+Coinductive types as greatest fixed-points
 
 -}
