@@ -2,43 +2,14 @@ module Logic where
 
 open import Agda.Primitive
 
-{-
-Negation:
-1. [](¬P) → ¬(<>P)
-2. ¬(<>P) → [](¬P)
-3. <>(¬P) → ¬([]P)
-4. ¬([]P) → <>(¬P)  -- couldn't prove, probably not constructively valid
 
-
-
-Identity:
-1. [](P) → ¬(<>(¬P))
-2. <>(P) → ¬([](¬P))
-3. ¬(<>(¬P)) → []P   -- couldn't prove, probably not constructively valid
-4. ¬([](¬P)) → <>P   -- couldn't prove, probably not constructively valid
-
-
-Axioms:
-1. P → []P                          -- N rule; asserted
-2. [](P → Q) → ([]P → []Q)        -- K rule; tautologous
-3. []P → P                          -- T rule; assuming reflexivity
-4. []P → [][]P                      -- 4 rule; assuming transitivity
-5. <>P → []<>P                      -- 5 rule; assuming symmetry & transitivity
-6. P → []<>P                        -- B rule; assuming reflexivity, transitivity and N-rule
-7. []P → <>P                        -- D rule; assuming reflexivity
-
- 
-
--}
-
-
-
-{-
-_∘_ : ∀ {i j k} {A : Set i} {B : Set j} {C : Set k} → (B → C) → (A → B) → (A → C)
-(g ∘ f) = λ x → g (f x)
--}
 
 module BaseDefinitions where
+ module Levels where
+  record Lift {i} {j} (A : Set i) : Set (i ⊔ j) where
+   field
+    lower : A
+    
  module Void where
   data ⊥ : Set where
   ω : ∀ {i} {A : Set i} → ⊥ → A
@@ -102,41 +73,6 @@ module BaseDefinitions where
 
   infixr 5 _∧_
 
- module Relations where
-  module BinaryRelations where
-   module Definition where
-    Rel₂ : ∀ {i j} → Set i → Set (i ⊔ (lsuc j))
-    Rel₂ {i} {j} A = A → A → Set j
-
-   module Properties where
-    open Definition
-    module Reflexivity where
-     Reflexive : ∀ {i j} → {A : Set i} → Rel₂ {i} {j} A → Set (i ⊔ j)
-     Reflexive {i} {j} {A} R = (x : A) → R x x
-
-    module Symmetry where
-     Symmetric : ∀ {i j} → {A : Set i} → Rel₂ {i} {j} A → Set (i ⊔ j)
-     Symmetric {i} {j} {A} R = {x y : A} → R x y → R y x
-
-    module Transitivity where
-     Transitive : ∀ {i j} → {A : Set i} → Rel₂ {i} {j} A → Set (i ⊔ j)
-     Transitive {i} {j} {A} R = {x y z : A} → R x y → R y z → R x z
-     
-    open Reflexivity public
-    open Symmetry public
-    open Transitivity public
-    
-    record Equivalence {i} {j} {A : Set i} (R : A → A → Set j) : Set (i ⊔ j) where
-     field
-      reflexive : Reflexive R
-      symmetric : Symmetric R
-      transitive : Transitive R
- 
-    module Antisymmetry where
-     Antisymmetric : ∀ { i j k} → {A : Set i} → (_~_ : A → A → Set k) → Equivalence _~_ → Rel₂ {i} {j} A → Set ((i ⊔ j) ⊔ k)
-     Antisymmetric {i} {j} {k} {A} _~_ ~-equiv R = {x y : A} → R x y → R y x → x ~ y
-   open Properties public
-  open BinaryRelations public
   
 
 
@@ -149,36 +85,6 @@ module BaseDefinitions where
 
    _≠_ : ∀ {i} {A : Set i} (x : A) → A → Set i
    x ≠ y = ¬ (x ≡ y)
-
-  module Properties where
-   open Definition
-   open Relations
-   [A≡B]→[A→B] : ∀ {i} {A B : Set i} → A ≡ B → A → B
-   [A≡B]→[A→B] refl a = a
-
-   ≡-sym : ∀ {i} {A : Set i} → Symmetric (_≡_ {i} {A})
-   ≡-sym refl = refl
-
-   ≡-trans : ∀ {i} {A : Set i} → Transitive (_≡_ {i} {A})
-   ≡-trans refl refl = refl
-
-   cong : ∀ {i j} {A : Set i} {B : Set j} (f : A → B) → {x y : A} → x ≡ y → (f x) ≡ (f y)
-   cong f refl = refl
-
-   transport : ∀ {i j} {A : Set i} → (P : A → Set j) → {x y : A} → x ≡ y → P x  → P y
-   transport P refl Px = Px
-
-   ≡-equiv : ∀ {i} {A : Set i} → Equivalence {i} {i} {A} _≡_
-   ≡-equiv =
-    record {
-     reflexive = λ x → refl ;
-     symmetric = ≡-sym ;
-     transitive = ≡-trans 
-    }
-
-   
-  open Definition
-  open Properties
 
  module Biimplication where
   module Definition where
@@ -198,29 +104,10 @@ module BaseDefinitions where
    data Bool : Set where
     true : Bool
     false : Bool
-
-   module Operations where
-    open Equality.Definition
-    if_then_else_ : ∀ {i} {A : Set i} → Bool → A → A → A
-    if true then a else b = a
-    if false then a else b = b
-
-    -- this is definitely not an implementation of if then else
-    -- but it still type-checks just fine
-    bad-ite : ∀ {i} {A : Set i} → Bool → A → A → A
-    bad-ite true a b = a
-    bad-ite false a b = a
-
-    -- so our type-signature must not quite be capturing what it means to be if_then_else
-    -- let's try this instead:
-
-    dif_then_else_ : ∀ {i} {P : Bool → Set i} → (b : Bool) → P true → P false → P b
-    dif true then Ptrue else Pfalse = Ptrue
-    dif false then Ptrue else Pfalse = Pfalse
-
-    dite₂ : ∀ {i} {P : Bool → Set i} → (b : Bool) → ((b ≡ true) → P true) → ((b ≡ false) → P false) → P b
-    dite₂ true t f = t refl
-    dite₂ false t f = f refl
+   {-# BUILTIN BOOL  Bool  #-}
+   {-# BUILTIN TRUE  true  #-}
+   {-# BUILTIN FALSE false #-}
+   
 
   module Nat where
    data Nat : Set where
@@ -229,6 +116,53 @@ module BaseDefinitions where
 
    {-# BUILTIN NATURAL Nat #-}
 
+  module List where
+   data List {i} (A : Set i) : Set i where
+    [] : List A
+    _∷_ : A → List A → List A
+   {-# BUILTIN LIST List #-}
+   infixr 0 _∷_
+
+  module Char where
+   postulate Char : Set
+   {-# BUILTIN CHAR Char #-}
+   
+  module String where
+   postulate String : Set
+   {-# BUILTIN STRING String #-}
+  
+  module CharBindings where
+   open Char
+   open Nat
+   open Bool
+   open String
+   primitive
+    primIsLower    : Char → Bool
+    primIsDigit    : Char → Bool
+    primIsAlpha    : Char → Bool
+    primIsSpace    : Char → Bool
+    primIsAscii    : Char → Bool
+    primIsLatin1   : Char → Bool
+    primIsPrint    : Char → Bool
+    primIsHexDigit : Char → Bool
+    primToUpper    : Char → Char
+    primToLower    : Char → Char
+    primCharToNat  : Char → Nat
+    primNatToChar  : Nat → Char
+    primShowChar   : Char → String
+    
+  module StringBindings where
+   open String
+   open Char
+   open List
+   open Bool
+   postulate primStringToList   : String → List Char
+   postulate primStringFromList : List Char → String
+   postulate primStringAppend   : String → String → String
+   postulate primStringEquality : String → String → Bool
+   postulate primShowString     : String → String
+ 
+
   module Fin where
    open Nat renaming (Nat to ℕ)
    module Definition where
@@ -236,130 +170,7 @@ module BaseDefinitions where
      zero : {n : ℕ} → Fin (suc n)
      suc : {n : ℕ} → Fin n → Fin (suc n)
    open Definition public
-   module Operations where
-    ℕ[_] : {n : ℕ} → Fin n → ℕ
-    ℕ[ zero ] = zero
-    ℕ[ suc x ] = suc (ℕ[ x ])
-
-    n→Fin[1+n] : (n : ℕ) → Fin (suc n)
-    n→Fin[1+n] 0 = zero
-    n→Fin[1+n] (suc n) = suc (n→Fin[1+n] n)
-
-    FinLift : {n : ℕ} → Fin n → Fin (suc n)
-    FinLift {0} ()
-    FinLift {suc n} zero = zero
-    FinLift {suc n} (suc {n} m) = suc (FinLift {n} m)
-
-    zero₂ : Fin 2
-    zero₂ = zero {1}
-
-    one₂ : Fin 2
-    one₂ = suc {1} (zero {0})
-
-    _-_ : (n : ℕ) → (m : Fin (suc n)) → Fin (suc n)
-    0 - zero = zero
-    0 - (suc ())
-    (suc x) - zero = n→Fin[1+n] (suc x)
-    (suc x) - (suc y) = FinLift (x - y)
-   open Operations
-   module Properties where
-    open Equality.Definition
-    open Equality.Properties
-    ℕ[n→Fin[1+n]]=n : (n : ℕ) → ℕ[ n→Fin[1+n] n ] ≡ n
-    ℕ[n→Fin[1+n]]=n 0 = refl
-    ℕ[n→Fin[1+n]]=n (suc n) = proof
-     where
-      proof = cong suc (ℕ[n→Fin[1+n]]=n n)
     
-    ℕ[n-0]=n : (n : ℕ) → (ℕ[ (n - zero) ]) ≡ n
-    ℕ[n-0]=n 0 = refl
-    ℕ[n-0]=n (suc n) = proof
-     where
-      lemma1 : ℕ[ (suc n) - zero ] ≡ ℕ[ n→Fin[1+n] (suc n) ]
-      lemma1 = refl
-
-      lemma2 : ℕ[ n→Fin[1+n] (suc n) ] ≡ ℕ[ suc (n→Fin[1+n] n) ]
-      lemma2 = refl
-
-      lemma3 : ℕ[ suc (n→Fin[1+n] n) ] ≡ suc (ℕ[ n→Fin[1+n] n ])
-      lemma3 = refl
-
-      proof = cong suc (ℕ[n→Fin[1+n]]=n n)
-    {-
-    ℕ[n-0]=n (suc (suc n)) = proof
-     where
-      lemma1 : ℕ[ (suc (suc n)) - zero ] ≡ ℕ[ n→Fin[1+n] (suc (suc n)) ]
-      lemma1 = refl
-
-      lemma2 : ℕ[ n→Fin[1+n] (suc (suc n)) ] ≡ ℕ[ suc (n→Fin[1+n] (suc n)) ]
-      lemma2 = refl
-
-      lemma3 : ℕ[ suc (n→Fin[1+n] (suc n)) ] ≡ suc (ℕ[ n→Fin[1+n] (suc n)])
-      lemma3 = refl
-
-      lemma4 : ℕ[ n→Fin[1+n] (suc n)] ≡ (suc n)
-      lemma4 = ℕ[n→Fin[1+n]]=n (suc n)
--}
-      {-
-      lemma4 : ℕ[ ((suc n) - zero) ] ≡ ℕ[ n→Fin[1+n] (suc n) ]
-      lemma4 = refl
-
-      lemma5 : ℕ[ (n - zero) ] ≡ n
-      lemma5 = ℕ[n-0]=n n
-      -}
-
-      {-
-      fails termination check!?
-      lemma6 : ℕ[ ((suc n) - zero) ] ≡ (suc n)
-      lemma6 = ℕ[n-0]=n (suc n)
-      -}
-{-
-      lemma6 : ℕ[ n→Fin[1+n] (suc n) ] ≡ suc ℕ[ n→Fin[1+n] n ]
-      lemma6 = refl
-
-      
-      lemma7 : ℕ[ n→Fin[1+n] n ] ≡ n
-      lemma7 =  ℕ[n→Fin[1+n]]=n n
-
-      lemma8 : 
-
-      proof -- = cong suc lemma6
--}
-    -- ℕ[n-n]=0 : (n : ℕ) → (ℕ[ (n - (n→Fin[1+n] n)) ]) ≡ 0
-  module List where
-   data List {i} (A : Set i) : Set i where
-    [] : List A
-    _∷_ : A → List A → List A
-
-   infixr 0 _∷_
-   module Operations where
-    open Bool
-    open Bool.Operations
-    foldr : ∀ {i j} {A : Set i} {B : Set j} → (A → B → B) → B → List A → B
-    foldr f b [] = b
-    foldr f b (a ∷ as) = f a (foldr f b as)
-
-    map : ∀ {i j} {A : Set i} {B : Set j} → (A → B) → List A → List B
-    map f [] = []
-    map f (a ∷ as) = (f a) ∷ (map f as)
-
-    _++_ : ∀ {i} {A : Set i} → (x y : List A) → List A
-    [] ++ ys = ys
-    (x  ∷ xs) ++ ys = x ∷ (xs ++ ys)
-
-    rev : ∀ {i} {A : Set i} → List A → List A
-    rev [] = []
-    rev (x ∷ xs) = (rev xs) ++ (x ∷ [])
-
-    find  : ∀ {i} {A : Set i} → A → List A → (A → A → Bool) → Bool
-    find x [] f = false
-    find x (y ∷ ys) f = if (f x y) then true else (find x ys f)
-   open Operations public
-   module Predicates where
-   {-
-    _∈_ : ∀ {i} {A : Set i} → A → List A → Set i
-    x ∈ L = 
-  -}
   module Vector where
    open List
    open Nat renaming (Nat to ℕ)
@@ -396,6 +207,8 @@ module BaseDefinitions where
  open Negation.Definition public
  open Sum public
  open BaseTypes public
+
+
 
 module BaseResults where
  open BaseDefinitions
@@ -464,10 +277,87 @@ module BaseResults where
    proof-right : (x : A) → ¬ (P x)
    proof-right x = ω (¬A x)
 
+
+
+module Relations where
+  -- unary relations are sets, covered in the Sets module
+  -- N-ary relations depend on Nats
+  -- indexing the arguments to a relation by something more general than Nat?
+  -- index by a tree you get a pattern?
+  module BinaryRelations where
+   module Definition where
+    Rel₂ : ∀ {i j} → Set i → Set (i ⊔ (lsuc j))
+    Rel₂ {i} {j} A = A → A → Set j
+
+   module Properties where
+    open Definition
+    module Reflexivity where
+     Reflexive : ∀ {i j} → {A : Set i} → Rel₂ {i} {j} A → Set (i ⊔ j)
+     Reflexive {i} {j} {A} R = (x : A) → R x x
+
+    module Symmetry where
+     Symmetric : ∀ {i j} → {A : Set i} → Rel₂ {i} {j} A → Set (i ⊔ j)
+     Symmetric {i} {j} {A} R = {x y : A} → R x y → R y x
+
+    module Transitivity where
+     Transitive : ∀ {i j} → {A : Set i} → Rel₂ {i} {j} A → Set (i ⊔ j)
+     Transitive {i} {j} {A} R = {x y z : A} → R x y → R y z → R x z
+     
+    open Reflexivity public
+    open Symmetry public
+    open Transitivity public
+    
+    record Equivalence {i} {j} {A : Set i} (R : A → A → Set j) : Set (i ⊔ j) where
+     field
+      reflexive : Reflexive R
+      symmetric : Symmetric R
+      transitive : Transitive R
+
+    -- antisymmetry is inherently more complex than:
+      -- reflexivity
+      -- symmetry
+      -- transitivity
+      -- equivalences
+    -- even needs to be defined relative to an equivalence relation:
+    module Antisymmetry where
+     Antisymmetric : ∀ { i j k} → {A : Set i} → (_~_ : A → A → Set k) → Equivalence _~_ → Rel₂ {i} {j} A → Set ((i ⊔ j) ⊔ k)
+     Antisymmetric {i} {j} {k} {A} _~_ ~-equiv R = {x y : A} → R x y → R y x → x ~ y
+   open Properties public
+  open BinaryRelations public
+
+module Equality where
+  module Properties where
+   open BaseDefinitions.Equality.Definition
+   open Relations
+   [A≡B]→[A→B] : ∀ {i} {A B : Set i} → A ≡ B → A → B
+   [A≡B]→[A→B] refl a = a
+
+   ≡-sym : ∀ {i} {A : Set i} → Symmetric (_≡_ {i} {A})
+   ≡-sym refl = refl
+
+   ≡-trans : ∀ {i} {A : Set i} → Transitive (_≡_ {i} {A})
+   ≡-trans refl refl = refl
+
+   cong : ∀ {i j} {A : Set i} {B : Set j} (f : A → B) → {x y : A} → x ≡ y → (f x) ≡ (f y)
+   cong f refl = refl
+
+   transport : ∀ {i j} {A : Set i} → (P : A → Set j) → {x y : A} → x ≡ y → P x  → P y
+   transport P refl Px = Px
+
+   coerce : {A B : Set} → A → A ≡ B → B
+   coerce {A} {.A} a refl = a
+
+   ≡-equiv : ∀ {i} {A : Set i} → Equivalence {i} {i} {A} _≡_
+   ≡-equiv =
+    record {
+     reflexive = λ x → refl ;
+     symmetric = ≡-sym ;
+     transitive = ≡-trans 
+    }
+
 module Boolean where
+ open BaseDefinitions.BaseTypes.Bool
  module Operations where
-  
-  open BaseDefinitions.BaseTypes.Bool
   not : Bool → Bool
   not true = false
   not false = true
@@ -486,6 +376,72 @@ module Boolean where
   false eq true = false
   false eq false = true
 
+  BoolEq : Bool → Bool → Bool
+  BoolEq true  true  = true
+  BoolEq true  false = false
+  BoolEq false true  = false
+  BoolEq false false = true
+
+  -- x ≤ y is the same as x → y
+  Bool≤ : Bool → Bool → Bool
+  Bool≤ true true = true
+  Bool≤ true false = false
+  Bool≤ false true = true
+  Bool≤ false false = true
+
+  -- x < y is the same as ¬ (y → x)
+  Bool< : Bool → Bool → Bool
+  Bool< true true = false
+  Bool< true false = false
+  Bool< false true = true
+  Bool< false false = false
+
+  if_then_else_ : ∀ {i} {A : Set i} → Bool → A → A → A
+  if true then a else b = a
+  if false then a else b = b
+
+  -- induction principle for Bool
+  Bool-ind : ∀ {i} {A : Bool → Set i} → A true → A false → (b : Bool) → A b
+  Bool-ind t f true  = t
+  Bool-ind t f false = f
+ 
+ module Complex where
+  open BaseDefinitions.Equality.Definition
+  open BaseDefinitions.Product
+  halfAdd : Bool → Bool → Bool × Bool
+  halfAdd true  true  = false , true
+  halfAdd true  false = true  , false
+  halfAdd false true  = true  , false
+  halfAdd false false = false , false
+
+  fullAdd : Bool → Bool → Bool → Bool × Bool
+  fullAdd true  true  true  = true  , true
+  fullAdd true  true  false = false , true
+  fullAdd true  false true  = false , true
+  fullAdd true  false false = true  , false
+  fullAdd false true  true  = false , true
+  fullAdd false true  false = true  , false
+  fullAdd false false true  = true  , false
+  fullAdd false false false = false , false
+
+  dite : ∀ {i} {A : Set i} → (b : Bool) → ((b ≡ true) → A) → ((b ≡ false) → A) → A
+  dite true  t f = t refl
+  dite false t f = f refl
+
+  dite-ind : ∀ {i} {P : Bool → Set i} → (b : Bool) → ((b ≡ true) → P true) → ((b ≡ false) → P false) → P b
+  dite-ind true  t f = t refl
+  dite-ind false t f = f refl
+
+ module Conversions where
+  open BaseDefinitions.Nat
+  boolToNat : Bool → Nat
+  boolToNat true  = 0
+  boolToNat false = 1
+
+ -- functional completeness
+ -- reversibility
+
+
 
 module Containers where
 -- Pairs
@@ -500,9 +456,103 @@ module Containers where
 -- Coq.FSet
 -- Coq.MSet
 -- Coq.Lists.ListSet
- data Maybe {i} (A : Set i) : Set i where
-  Nothing : Maybe A
-  Just : A → Maybe A
+ module Maybe where
+  module Definition where
+   data Maybe {i} (A : Set i) : Set i where
+    Nothing : Maybe A
+    Just : A → Maybe A
+  module Operations where
+   open Definition
+   MaybeMap : {A B : Set} → (f : A → B) → Maybe A → Maybe B
+   MaybeMap f Nothing = Nothing
+   MaybeMap f (Just x) = Just (f x)
+
+  module BooleanPredicates where
+   open Definition
+   open BaseDefinitions.Bool
+   checkMaybe : {A : Set} → Maybe A → Bool
+   checkMaybe Nothing = false
+   checkMaybe (Just x) = true
+
+  module Complex where
+   open Definition
+   open BaseDefinitions.Bool
+   open BaseDefinitions.Equality.Definition
+   open BooleanPredicates
+   
+   extractMaybe : {A : Set} → (m : Maybe A) → (checkMaybe m) ≡ true → A
+   extractMaybe {A} Nothing ()
+   extractMaybe {A} (Just x) p = x
+
+
+ module List where
+   open BaseDefinitions.List
+   module Operations where
+    foldr : ∀ {i j} {A : Set i} {B : Set j} → (A → B → B) → B → List A → B
+    foldr f b [] = b
+    foldr f b (a ∷ as) = f a (foldr f b as)
+
+    map : ∀ {i j} {A : Set i} {B : Set j} → (A → B) → List A → List B
+    map f [] = []
+    map f (a ∷ as) = (f a) ∷ (map f as)
+
+    [_] : {A : Set} → A  → List A
+    [ x ] = x ∷ []
+
+
+    _++_ : ∀ {i} {A : Set i} → (x y : List A) → List A
+    [] ++ ys = ys
+    (x  ∷ xs) ++ ys = x ∷ (xs ++ ys)
+
+    rev : ∀ {i} {A : Set i} → List A → List A
+    rev [] = []
+    rev (x ∷ xs) = (rev xs) ++ (x ∷ [])
+   open Operations public
+   module Predicates where
+   {-
+    _∈_ : ∀ {i} {A : Set i} → A → List A → Set i
+    x ∈ L = 
+  -}
+   module BooleanPredicates where
+    open BaseDefinitions.Bool
+    open Boolean.Operations
+    find  : ∀ {i} {A : Set i} → A → List A → (A → A → Bool) → Bool
+    find x [] f = false
+    find x (y ∷ ys) f = if (f x y) then true else (find x ys f)    
+
+    ListEq : {A : Set} (eq : A → A → Bool) (x y : List A) → Bool
+    ListEq eq [] [] = true
+    ListEq eq (a₁ ∷ as₁) [] = false
+    ListEq eq [] (a₂ ∷ as₂) = false
+    ListEq eq (a₁ ∷ as₁) (a₂ ∷ as₂) = if (eq a₁ a₂) then ((ListEq eq) as₁ as₂) else false
+ 
+ module Vector where
+  open BaseDefinitions.Nat
+  open BaseDefinitions.Vector
+  module BooleanPredicates where
+   open BaseDefinitions.Bool
+   open Boolean.Operations
+   VectorEq : {A : Set} {n : Nat} → (eq : A → A → Bool) → (x y : Vector A n) → Bool 
+   VectorEq eq [] [] = true
+   VectorEq eq (a₁ ∷ as₁) (a₂ ∷ as₂) = if (eq a₁ a₂) then ((VectorEq eq) as₁ as₂) else false
+
+ module BinTree where
+  open BaseDefinitions.Bool
+  open BaseDefinitions.Nat
+  open BaseDefinitions.Vector
+  data BinTree (A : Set) : Nat → Set where
+   leaf : A → BinTree A 0
+   node : {n : Nat} → BinTree A n → BinTree A n → BinTree A (suc n)
+
+  store : {A : Set} {n : Nat} → BinTree A n → A → Vector Bool n → BinTree A n
+  store {A} {0} (leaf a) x [] = leaf x
+  store {A} {(suc n)} (node a b) x (true ∷ rest) = node (store a x rest) b
+  store {A} {(suc n)} (node a b) x (false ∷ rest) = node a (store b x rest)
+
+  retrieve : {A : Set} {n : Nat} → BinTree A n → Vector Bool n → A
+  retrieve {A} {0} (leaf a) [] = a
+  retrieve {A} {(suc n)} (node a b) (true ∷ rest) = retrieve a rest
+  retrieve {A} {(suc n)} (node a b) (false ∷ rest) = retrieve b rest
 
 
 module Functions where
@@ -539,7 +589,7 @@ module Functions where
    ∘-assoc :
     ∀ {i j k l} {A : Set i} {B : Set j} {C : Set k} {D : Set l}
     → (f : A → B) → (g : B → C) → (h : C → D)
-    → ((h ∘ g) ∘ f) ≡ (h ∘ (g ∘ f))
+    → ((h ∘ g) ∘ f) ≡ (h ∘ (g ∘ f)) 
    ∘-assoc f g h = refl
  open Composition.Definition
  module Iteration where
@@ -555,7 +605,7 @@ module Functions where
  open Iteration
  module GenericProperties where
   open BaseDefinitions.Equality.Definition
-  open BaseDefinitions.Relations.BinaryRelations.Properties.Reflexivity
+  open Relations.BinaryRelations.Properties.Reflexivity
   {- Associativity:
      Associativity only defined on binary operators:
      f : A → B → C
@@ -583,10 +633,11 @@ module Functions where
   →-refl : ∀ {i j} → Reflexive {lsuc i} {j} (Set i) _⊃_
   →-refl A = λ x → x
   -}
-
+  
   →-trans : ∀ {i} {A B C : Set i} → (A → B) → (B → C) → (A → C)
   →-trans = λ f g x → g (f x)
 
+ -- could be relativized to equivalence relations
  module Predicates where
   open Special
   open Composition.Definition
@@ -619,6 +670,9 @@ module Functions where
   _isInjective : ∀ {i j} {A : Set i} {B : Set j} (f : A → B) → Set (i ⊔ j)
   _isInjective = Injective
 
+  _hasInjectionTo_ : ∀ {i j} (A : Set i) (B : Set j) → Set (i ⊔ j)
+  A hasInjectionTo B = ∃ f ∈ (A → B) , (f isInjective)
+
   Surjective : ∀ {i j} {A : Set i} {B : Set j} (f : A → B) → Set (i ⊔ j)
   Surjective {i} {j} {A} {B} f = (y : B) → ∃ x ∈ A , (f x ≡ y)
 
@@ -627,6 +681,9 @@ module Functions where
 
   _isSurjective : ∀ {i j} {A : Set i} {B : Set j} (f : A → B) → Set (i ⊔ j)
   _isSurjective = Surjective
+
+  _hasSurjectionTo_ : ∀ {i j} (A : Set i) (B : Set j) → Set (i ⊔ j)
+  A hasSurjectionTo B = ∃ f ∈ (A → B) , (f isSurjective)
 
   Bijective : ∀ {i j} {A : Set i} {B : Set j} (f : A → B) → Set (i ⊔ j)
   Bijective f = (f isInjective) ∧ (f isSurjective)
@@ -637,6 +694,11 @@ module Functions where
   _isBijective : ∀ {i j} {A : Set i} {B : Set j} (f : A → B) → Set (i ⊔ j)
   _isBijective = Bijective
 
+  _hasBijectionTo_ : ∀ {i j} (A : Set i) (B : Set j) → Set (i ⊔ j)
+  A hasBijectionTo B = ∃ f ∈ (A → B) , (f isBijective)
+
+  _hasBijectionWith_ : ∀ {i j} (A : Set i) (B : Set j) → Set (i ⊔ j)
+  _hasBijectionWith_ = _hasBijectionTo_
  module Identities where
   open BaseDefinitions.Product
   open BaseDefinitions.Equality.Definition
@@ -675,6 +737,7 @@ module Functions where
   _hasIdentity {i} {A} f = ∃ e ∈ A , (e isIdentityWrt f)
   
 
+ -- could be relativized to equivalence relations defined on the sets
  module Inverses where
   module FunctionInverses where
    open Special
@@ -758,26 +821,342 @@ module Functions where
    -- object inverses more basic than function inverses or function inverses more basic than object inverses or neither?
    -- functions generalize the situation; morphisms between objects
    -- translation of abstract algebra into category theory: objects become morphisms, some operation becomes composition of morphisms
-   
+   -- binary operation
+   -- with an equivalence relation
+   -- presumably the binary operation should be congruent with the equivalence relation
+   -- and it must have an identity element
+   -- equivalence relations equivalent to groupoids?
+   -- use transitivity requirement to get composition of components of the relation
+   -- use symmetry to get inverses
+   -- use reflexivity to get identity elements
+   -- and vice-versa
+
    {-
-   _isRInverseOfₒ_wrt_ : ∀ {i} {A : Set i} (y x : A) → (A → A → A) → Set i
+   _isRight_InverseOf_wrt_with-id_ : ∀ {i j} {A : Set i} → A → (A → A → A) → A → (A → A → Set j) → A → Set j
+   x isRight f InverseOf y wrt _~_ with-id e = (f y x) ~ e
+
+   _isLeft_InverseOf_wrt_with-id_ : ∀ {i j} {A : Set i} → A → (A → A → A) → A → (A → A → Set j) → A → Set j 
+   x isLeft f InverseOf y wrt _~_ with-id e = (f x y) ~ e
    -}
 
-
+ -- could be relativized to equivalence relations
  open Inverses
       
- 
+ module Injections where
+  open BaseDefinitions.Void
+  open BaseDefinitions.Equality.Definition
+  open BaseDefinitions.Product
+  open Special
+  open Predicates
+  id-inj : ∀ {i} {A : Set  i} → (id {i} {A}) isInjective
+  id-inj {i} {A} {x} {y} idx≡idy = idx≡idy
+
+  Inj-refl : ∀ {i} (A : Set i) → A hasInjectionTo A
+  Inj-refl A = (id , id-inj)
+  
+  Inj-trans : ∀ {i j k} {A : Set i} {B : Set j} {C : Set k} → A hasInjectionTo B → B hasInjectionTo C → A hasInjectionTo C
+  Inj-trans (f , f-inj) (g , g-inj) = ((g ∘ f) , (λ gfx=gfy → f-inj (g-inj gfx=gfy)))
+
+  Inj-refl-id : ∀ {i} {A B : Set i} (AB : A  hasInjectionTo B) → ((Inj-trans (Inj-refl A) AB) ≡ AB) ∧ ((Inj-trans AB (Inj-refl B)) ≡ AB)
+  Inj-refl-id {i} {A} {B} (AB , AB-inj) = refl , refl
 
 
+  Inj-trans-assoc :
+   ∀ {i}
+   {A B C D : Set i}
+   (AB : A hasInjectionTo B)
+   (BC : B hasInjectionTo C)
+   (CD : C hasInjectionTo D) →
+   (Inj-trans AB (Inj-trans BC CD)) ≡ (Inj-trans (Inj-trans AB BC) CD)
+  Inj-trans-assoc
+   {i} {A} {B} {C} {D}
+   (AB , AB-inj) (BC , BC-inj) (CD , CD-inj) = refl
+
+  
+
+  ⊥→A-inj : ∀ {i} (A : Set i) → ⊥ hasInjectionTo A
+  ⊥→A-inj A = (explode , explode-inj)
+   where
+    explode : ⊥ → A
+    explode ()
+
+    explode-inj : explode isInjective
+    explode-inj {x = ()}
+
+  -- anti-symmetric relative to what equivalence relation?
+  -- 
+
+  -- so it's at least a preorder at any set-level
+ module Surjections where
+  open BaseDefinitions.Levels
+  open BaseDefinitions.Equality.Definition
+  open Equality.Properties
+  open BaseDefinitions.Product
+  open BaseDefinitions.BaseTypes.Unit
+  open BaseDefinitions.Void
+  open BaseDefinitions.Negation.Definition
+  open Special
+  open Predicates
+
+  id-surj : ∀ {i} {A : Set i} → (id {i} {A}) isSurjective
+  id-surj {i} {A} y = (y , refl)
+
+  Surj-refl : ∀ {i} (A : Set i) → A hasSurjectionTo A
+  Surj-refl {i} A = (id , id-surj)
 
 
+  
+  Surj-trans : ∀ {i j k} {A : Set i} {B : Set j} {C : Set k} → A hasSurjectionTo B → B hasSurjectionTo C → A hasSurjectionTo C
+  Surj-trans {A = A} {B = B} {C = C} (f , f-surj) (g , g-surj) = ((g ∘ f) , g∘f-surj)
+   where
+    g∘f-surj : (z : C) → ∃ x ∈ A , (((g ∘ f) x) ≡ z)
+    g∘f-surj z = (x , gfx=z)
+     where
+      y : B
+      y = π₁ (g-surj z)
+
+      gy=z : (g y) ≡ z
+      gy=z = π₂ (g-surj z)
+      
+      x : A
+      x = π₁ (f-surj y)
+
+      fx=y : (f x) ≡ y
+      fx=y = π₂ (f-surj y)
+      
+      gfx=z = ≡-trans (cong g fx=y) gy=z
+
+   {-
+  Surj-refl-id : ∀ {i} {A B : Set i} (AB : A  hasSurjectionTo B) → ((Surj-trans (Surj-refl A) AB) ≡ AB) ∧ ((Surj-trans AB (Surj-refl B)) ≡ AB)
+  Surj-refl-id {i} {A} {B} (AB , AB-surj) = refl , refl
 
 
+  Surj-trans-assoc :
+   ∀ {i}
+   {A B C D : Set i}
+   (AB : A hasSurjectionTo B)
+   (BC : B hasSurjectionTo C)
+   (CD : C hasSurjectionTo D) →
+   (Surj-trans AB (Surj-trans BC CD)) ≡ (Surj-trans (Surj-trans AB BC) CD)
+  Surj-trans-assoc
+   {i} {A} {B} {C} {D}
+   (AB , AB-inj) (BC , BC-inj) (CD , CD-inj) = refl
+  -}
 
+  -- Surj-antisym
+  -- relative to what equivalence relation?
 
+  -- can't relate "A hasSurjectionTo B" to "| A | ≥ | B |"
+  -- No surjection from inhabited sets to the empty set, so
+  -- inhabited sets aren't "greater than" the empty set by this
+  -- measure.
+  ¬[⊥-terminal] : ∀ {i} → ¬ ((A : Set i) → A → ⊥)
+  ¬[⊥-terminal] {i} f = f (Lift {lzero} {i} ⊤) (record{lower = unit})
+
+  -- for every inhabited set A, surjection from A → Unit
+  -- so for every inhabited set A, |A| ≥ 1
+  ⊤-semiterminal : ∀ {i} {A : Set i} → A → A hasSurjectionTo ⊤
+  ⊤-semiterminal a = ((λ x → unit) , (λ {unit → (a , refl)}))
+
+  ⊥-absorb  : ∀ {i} {A : Set i} → ¬ A → A hasSurjectionTo ⊥
+  ⊥-absorb {i} {A} ¬A = (¬A , λ ())
+      
+ module Bijections where
+  open BaseDefinitions.Levels
+  open BaseDefinitions.Equality.Definition
+  open Equality.Properties
+  open BaseDefinitions.Product
+  open BaseDefinitions.BaseTypes.Unit
+  open BaseDefinitions.Void
+  open BaseDefinitions.Negation.Definition
+  open Relations
+  open Special
+  open Predicates
+  open Injections
+  open Surjections
+  open FunctionInverses
+
+  id-bij : ∀ {i} {A : Set i} → id {i} {A} isBijection
+  id-bij {i} {A} = (id-inj , id-surj)
+
+  Bij-refl : ∀ {i} (A : Set i) → A hasBijectionWith A
+  Bij-refl {i} A = (id , id-bij)
+
+  Bij-trans : ∀ {i j k} {A : Set i} {B : Set j} {C : Set k} → A hasBijectionWith B → B hasBijectionWith C → A hasBijectionWith C
+  Bij-trans {i} {j} {k} {A} {B} {C} (f , (f-inj , f-surj)) (g , (g-inj , g-surj)) = ((g ∘ f) , (g∘f-inj , g∘f-surj))
+   where
+    g∘f-inj = π₂ (Inj-trans (f , f-inj) (g , g-inj))
+    g∘f-surj = π₂ (Surj-trans (f , f-surj) (g , g-surj))
+
+  Bij-inv : ∀ {i j} {A : Set i} {B : Set j} → (f : A → B) → f isBijective → f hasInverseₑ
+  Bij-inv {i} {j} {A} {B} f (f-inj , f-surj) = g , (gf-inv , fg-inv)
+   where
+    g : B → A
+    g b = π₁ (f-surj b)
+
+    fg-inv : (y : B) → f (g y) ≡ y
+    fg-inv y = π₂ (f-surj y)
+    
+    gf-inv : (x : A) → (g (f x)) ≡ x
+    gf-inv x = gfx=x
+     where
+      x' = π₁ (f-surj (f x))
+      
+      fx'=fx : (f x') ≡ (f x)
+      fx'=fx = π₂ (f-surj (f x))
+
+      x'=x : x' ≡ x
+      x'=x = f-inj fx'=fx
+
+      gfx=x' : g (f x) ≡ x'
+      gfx=x' = refl
+
+      gfx=x = ≡-trans gfx=x' x'=x
+      
+  Inv-bij : ∀ {i j} {A : Set i} {B : Set j} → (f : A → B) → (f-inv : f hasInverseₑ) → (f isBijective) ∧ ((π₁ f-inv) isBijective)
+  Inv-bij {i} {j} {A} {B} f (g , (g-Linv , g-Rinv)) = ((f-inj , f-surj) , (g-inj , g-surj))
+   where
+    f-inj : {x y : A} → (f x) ≡ (f y) → x ≡ y
+    f-inj {x} {y} fx=fy = x=y
+     where
+      gfx=gfy = cong g fx=fy
+      x=y = ≡-trans (≡-sym (g-Linv x)) (≡-trans gfx=gfy (g-Linv y))
+      
+    f-surj : (y : B) → ∃ x ∈ A , ((f x) ≡ y)
+    f-surj y = ((g y) , g-Rinv y)
+
+    g-inj : {x y : B} → (g x) ≡ (g y) → x ≡ y
+    g-inj {x} {y} gx=gy = ≡-trans (≡-sym (g-Rinv x)) (≡-trans (cong f gx=gy) (g-Rinv y))
+      
+    g-surj : (y : A) → ∃ x ∈ B , ((g x) ≡ y)
+    g-surj y = ((f y) , g-Linv y)
+
+  
+
+  -- inversion the proper thing to use for defining antisymmetry of injections / surjections since it's the thing that provides symmetry for bijections
+  -- inversion is also what gives the inverses for defining groupoids
+  Bij-symm : ∀ {i j} {A : Set i} {B : Set j} → A hasBijectionWith B → B hasBijectionWith A
+  Bij-symm {i} {j} {A} {B} (f , f-bij) = (π₁ (Bij-inv f f-bij)) , (second (Inv-bij f (Bij-inv f f-bij)))
+  
+  Bij-equiv : ∀ {i} → Equivalence (_hasBijectionWith_ {i} {i})
+  Bij-equiv {i} =
+   record {
+    reflexive = Bij-refl {i} ;
+    symmetric = Bij-symm {i} {i} ;
+    transitive = Bij-trans {i} {i} {i}
+   }
+
+  _hasBijection₂With_ : ∀ {i} {j} (A : Set i) (B : Set j) → Set (i ⊔ j)
+  A hasBijection₂With B = ∃ f ∈ (A → B) , (f hasInverseᵢ)
+
+  Bij₂-refl : ∀ {i} (A : Set i) → A hasBijection₂With A
+  Bij₂-refl {i} A = (id , (id , (refl , refl)))
+
+  {-
+   ∘-assoc :
+    ∀ {i j k l} {A : Set i} {B : Set j} {C : Set k} {D : Set l}
+    → (f : A → B) → (g : B → C) → (h : C → D)
+    → ((h ∘ g) ∘ f) ≡ (h ∘ (g ∘ f)) 
+   ∘-assoc f g h = refl
+  -}
+
+  Bij₂-trans : ∀ {i} {A B C : Set i} → A hasBijection₂With B → B hasBijection₂With C → A hasBijection₂With C
+  Bij₂-trans
+   {i} {A} {B} {C}
+   (AB , (BA , (BAL , BAR)))
+   (BC , (CB , (CBL , CBR))) =
+   ((BC ∘ AB) , ((BA ∘ CB) , (((≡-trans ∘ (cong₂ BA AB)) CBL BAL) , ((≡-trans ∘ (cong₂ BC CB)) BAR CBR))))
+   where
+    open Composition.Properties
+    cong₂ :
+     ∀ {i} {j} {A : Set i} {B : Set j} →
+     (xy : A → B)
+     (yx : B → A)
+     {q r : A → A} →
+     (q ≡ r) →
+     (xy ∘ (q ∘ yx)) ≡ (xy ∘ (r ∘ yx))
+    cong₂ xy yx = cong (λ q → xy ∘ (q ∘ yx))
+  
+  {-
+  Bij₂-refl-id :
+   ∀ {i} {A B : Set i}
+   (AB : A  hasBijection₂With B) →
+   ((Bij₂-trans (Bij₂-refl A) AB) ≡ AB) ∧ ((Bij₂-trans AB (Bij₂-refl B)) ≡ AB)
+  Bij₂-refl-id
+   {i} {A} {B}
+   (AB , (BA , (BA-Linv , BA-Rinv))) = (proof1 , proof2)
+   where
+    cong₂ :
+     ∀ {i} {j} {A : Set i} {B : Set j} →
+     (xy : A → B)
+     (yx : B → A)
+     {q r : A → A} →
+     (q ≡ r) →
+     (xy ∘ (q ∘ yx)) ≡ (xy ∘ (r ∘ yx))
+    cong₂ xy yx = cong (λ q → xy ∘ (q ∘ yx))
+
+    cong₂-id-id=cong-id : cong₂ id id ≡ cong id
+    cong₂-id-id=cong-id = refl
+  
+    AB* = (AB , (BA , (BA-Linv , BA-Rinv)))
+    
+    A* : A hasBijection₂With A
+    A* = Bij₂-refl A
+
+    A*-lemma : A* ≡ (id , (id , (refl , refl)))
+    A*-lemma = refl
+
+    p-lemma : ∀ {i} {A : Set i} {x : A} → (p : x ≡ x) → (p ≡ refl)
+    p-lemma {i} {A} {x} refl = refl
+
+    A*-lemma3 : (first (π₂ (π₂ (Bij₂-trans (Bij₂-refl A) AB*)))) ≡ ((≡-trans ∘ (cong₂ id id)) BA-Linv refl)
+    A*-lemma3 = refl
+
+    {-
+    A*-lemma9 : (first (π₂ (π₂ (Bij₂-trans (Bij₂-refl A) AB*)))) ≡ (λ q → refl)
+    A*-lemma9 = p-lemma (first (π₂ (π₂ (Bij₂-trans (Bij₂-refl A) AB*))))
+    -}
+
+    A*-lemma4 : ((≡-trans ∘ (cong₂ id id)) BA-Linv refl) ≡ ((≡-trans ∘ (cong id)) BA-Linv refl)
+    A*-lemma4 = refl
+
+    cong-id-lemma : ∀ {i} {A : Set i} {x y : A} → (p : x ≡ y) → ((cong id p) ≡ p)
+    cong-id-lemma {i} {A} {x} {.x} refl = refl
+
+    A*-lemma5 : ((≡-trans ∘ (cong id)) BA-Linv refl) ≡ (≡-trans (cong id BA-Linv) refl)
+    A*-lemma5 = refl
+    -- A*-lemma6 : (≡-trans ((cong id) BA-Linv) refl) ≡ 
+
+    
+    A*-lemma6 : (≡-trans ((cong id) BA-Linv) refl) ≡ (≡-trans BA-Linv refl)
+    A*-lemma6 = cong (λ q → ≡-trans q refl) (cong-id-lemma BA-Linv)
+
+    {-
+    A*-lemma7 : (≡-trans BA-Linv refl) ≡ BA-Linv
+    A*-lemma7 = 
+    -}
+
+    {-
+    A*-lemma2 : ((≡-trans ∘ (cong₂ id id)) BA-Linv refl) ≡ BA-Linv
+    A*-lemma2 = refl
+    -}
+
+    {-
+    lemma1 : (Bij₂-trans (id , (id , (refl , refl))) AB*) ≡ ((AB ∘ id) , ((id ∘ BA) , ((≡-trans (cong (λ q x → id (q x)) (cong (λ q x → q (id x)) BA-Linv)) refl) , (≡-trans (cong (λ q x → id (q x)) (cong (λ q x → q (id x)) BA-Rinv)) refl))))
+    lemma1 = refl
+    -}
+    
+    proof1 {-: (Bij₂-trans (id , (id , (refl , refl))) AB*) ≡ AB*
+    proof1 = refl
+    -}
+    proof2
+  -}  
 module BaseArithmetic where
  open BaseDefinitions.BaseTypes.Nat public renaming (Nat to ℕ)
  module Operations where
+  open BaseDefinitions.Product
+  open Containers.Maybe.Definition
+  open Containers.Maybe.Operations
   _+_ : ℕ → ℕ → ℕ
   0 + y = y
   (suc x) + y = suc (x + y)
@@ -798,13 +1177,91 @@ module BaseArithmetic where
   0 - x = 0
   (suc x) - 0 = (suc x)
   (suc x) - (suc y) = x - y
+  
+  div-helper : ℕ → ℕ → ℕ × ℕ → ℕ × ℕ
+  div-helper 0       n (d , zero)          = ((suc d) , 0)
+  div-helper 0       n (d , (suc r))       = (d , (n - r))
+  div-helper (suc x) n (d , zero)          = div-helper x n ((suc d) , n)
+  div-helper (suc x) n (d , (suc r))       = div-helper x n (d , r)
+ 
+  _÷_ : ℕ → ℕ → Maybe (ℕ × ℕ)
+  (x ÷ 0)       = Nothing
+  (0 ÷ (suc n)) = Just (0 , 0)
+  ((suc x) ÷ (suc n)) = Just (div-helper x n (0 , n))
 
-  {-
-  mod : ℕ → ℕ → ℕ
-  mod 
-  div : ℕ → ℕ → ℕ
-  -}
- open Operations public
+  _div_ : ℕ → ℕ → Maybe ℕ
+  x div y = MaybeMap first (x ÷ y)
+ 
+  _mod_ : ℕ → ℕ → Maybe ℕ
+  x mod y = MaybeMap second (x ÷ y)
+
+ module FinOperations where
+  open BaseDefinitions.Product
+  open BaseDefinitions.Fin
+  open Containers.Maybe.Definition
+
+  ℕ[_] : {n : ℕ} → Fin n → ℕ
+  ℕ[ zero ] = zero
+  ℕ[ suc x ] = suc (ℕ[ x ])
+
+  n→Fin[1+n] : (n : ℕ) → Fin (suc n)
+  n→Fin[1+n] 0 = zero
+  n→Fin[1+n] (suc n) = suc (n→Fin[1+n] n)
+
+  FinLift : {n : ℕ} → Fin n → Fin (suc n)
+  FinLift {0} ()
+  FinLift {suc n} zero = zero
+  FinLift {suc n} (suc {n} m) = suc (FinLift {n} m)
+
+  zero₂ : Fin 2
+  zero₂ = zero {1}
+
+  one₂ : Fin 2
+  one₂ = suc {1} (zero {0})
+
+  _-_ : (n : ℕ) → (m : Fin (suc n)) → Fin (suc n)
+  0 - zero = zero
+  0 - (suc ())
+  (suc x) - zero = n→Fin[1+n] (suc x)
+  (suc x) - (suc y) = FinLift (x - y)
+       
+  n→Fin[n+1] : (n : ℕ) → Fin (suc n)
+  n→Fin[n+1] 0 = zero
+  n→Fin[n+1] (suc n) = suc (n→Fin[n+1] n)
+ 
+  Fin[n]→Fin[n+1] : {n : ℕ} → Fin n → Fin (suc n)
+  Fin[n]→Fin[n+1] {0} ()
+  Fin[n]→Fin[n+1] {suc n} zero = zero
+  Fin[n]→Fin[n+1] {suc n} (suc m) = suc (Fin[n]→Fin[n+1] m)
+
+  Fin→Nat : {n : ℕ} → Fin n → ℕ
+  Fin→Nat {0} ()
+  Fin→Nat {suc n} zero = zero
+  Fin→Nat {suc n} (suc m) = suc (Fin→Nat m)
+
+  minus : (n : ℕ) → Fin n → Fin (suc n)
+  minus 0 ()
+  minus (suc n) zero = n→Fin[n+1] (suc n)
+  minus (suc n) (suc m) = Fin[n]→Fin[n+1] (minus n m)
+
+
+  minusModN : (n : ℕ) → Fin n → Fin n
+  minusModN 0 ()
+  minusModN (suc n) zero = zero
+  minusModN (suc n) (suc m) = minus n m
+
+
+  div-helper : ℕ → (n : ℕ) → ℕ × (Fin (suc n)) → ℕ × ℕ
+  div-helper 0       n (d , zero)          = ((suc d) , 0)
+  div-helper 0       n (d , (suc r))       = (d , Fin→Nat (minusModN (suc n) (suc r)))
+  div-helper (suc x) n (d , zero)          = div-helper x n ((suc d) , (n→Fin[n+1] n))
+  div-helper (suc x) n (d , (suc r))       = div-helper x n (d , (Fin[n]→Fin[n+1] r))
+
+  _÷_ : ℕ → (n : ℕ) → Maybe (ℕ × ℕ)
+  (x ÷ 0)       = Nothing
+  (0 ÷ (suc n)) = Just (0 , 0)
+  ((suc x) ÷ (suc n)) = Just (div-helper x n (0 , (n→Fin[n+1] n)))
+  
  module BooleanPredicates where
   open BaseDefinitions.BaseTypes.Bool
   _eq_ : ℕ → ℕ → Bool
@@ -835,7 +1292,8 @@ module BaseArithmetic where
   0 gt (suc y) = false
   (suc x) gt (suc y) = x gt y
  open BooleanPredicates
- module Relations where
+ module BinaryPredicates where
+  open Operations
   open BaseDefinitions.Equality.Definition
   open BaseDefinitions.Product
   open BaseDefinitions.Negation.Definition
@@ -880,6 +1338,12 @@ module BaseArithmetic where
 
  open Relations
  module Results where
+  open BaseDefinitions.Equality.Definition
+  open BaseDefinitions.Nat
+  open Operations
+  n=n-0 : (n : Nat) → n ≡ (n - 0)
+  n=n-0 0 = refl
+  n=n-0 (suc n) = refl
   
 
 
@@ -909,8 +1373,9 @@ module BaseAbstractAlgebra where
    
 module FunctionArithmetic where
  open BaseDefinitions.Equality.Definition
- open BaseDefinitions.Equality.Properties
+ open Equality.Properties
  open BaseArithmetic
+ open BaseArithmetic.Operations
  open Functions
  open Functions.Special
  open Functions.Composition.Definition
@@ -964,14 +1429,15 @@ module Orders where
  open BaseDefinitions.Negation.Definition
  open BaseDefinitions.Sum
  open BaseDefinitions.Product
- open BaseDefinitions.Relations
- open BaseDefinitions.Relations.Properties.Reflexivity
- open BaseDefinitions.Relations.Properties.Symmetry
- open BaseDefinitions.Relations.Properties.Antisymmetry
- open BaseDefinitions.Relations.Properties.Transitivity
+ open Relations
+ open Relations.Properties.Reflexivity
+ open Relations.Properties.Symmetry
+ open Relations.Properties.Antisymmetry
+ open Relations.Properties.Transitivity
  open BaseDefinitions.Equality.Definition
- open BaseDefinitions.Equality.Properties
+ open Equality.Properties
  -- algebraic structures; to bundle or not to bundle
+ -- how to describe relationship between these?
  record PartialOrder {i j} {A : Set i} (R : A → A → Set j) : Set (i ⊔ j) where
   field
    reflexive : Reflexive R
@@ -1001,6 +1467,7 @@ module Orders where
    transitive : Transitive R
    antisymmetric : Antisymmetric {i} {j} {k} {A} _~_ ~-equiv R
   
+
 
  record TotalOrder {i j} {A : Set i} (R : A → A → Set j) : Set (i ⊔ j) where
   field
@@ -1041,7 +1508,7 @@ module Orders where
 
 module MetricSpaces where
  open BaseDefinitions.Equality.Definition
- open BaseDefinitions.Relations
+ open Relations
 -- can you define it without reference to the reals?
  open Orders
  record MetricSpace {i j} : Set ((lsuc i) ⊔ (lsuc j)) where
@@ -1084,7 +1551,7 @@ module MetricSpaces where
 module Limits where
  open BaseDefinitions.Product
  open BaseDefinitions.BaseTypes.Nat renaming (Nat to ℕ)
- open BaseArithmetic.Relations hiding (_<_)
+ open BaseArithmetic.BinaryPredicates
  open Orders
  open MetricSpaces
 -- epsilon-delta convergence
@@ -1135,13 +1602,14 @@ module Numbers where
  open BaseDefinitions.Void
  open BaseDefinitions.BaseTypes.Unit
  open BaseDefinitions.BaseTypes.Bool
- open BaseDefinitions.BaseTypes.Bool.Operations
+ open Boolean.Operations hiding (_eq_)
+ open Boolean.Complex
  open BaseDefinitions.BaseTypes.Nat renaming (Nat to ℕ)
  open BaseDefinitions.BaseTypes.Fin
  open BaseDefinitions.Product
  open BaseDefinitions.Equality.Definition
- open BaseDefinitions.Equality.Properties
- open BaseArithmetic.Operations
+ open Equality.Properties
+ open BaseArithmetic.Operations renaming (_÷_ to _divide_)
  open BaseArithmetic.BooleanPredicates
  open Decidability
 
@@ -1191,7 +1659,7 @@ module Numbers where
 
  
  _≟_ : (x y : ℕ) → Dec (x ≡ y)
- x ≟ y = dite₂ {lzero} {λ b → (Dec (x ≡ y))} (x eq y) true-case false-case
+ x ≟ y = dite-ind {lzero} {λ b → (Dec (x ≡ y))} (x eq y) true-case false-case
   where
    true-case : ((x eq y) ≡ true) → Dec (x ≡ y)
    true-case p = yes (eq-decides-≡ p)
@@ -1567,7 +2035,7 @@ module Numbers where
    module Stern-Brocot₂ where
     open BaseDefinitions.Sum
     open BaseDefinitions.BaseTypes.List
-    open BaseDefinitions.BaseTypes.List.Operations
+    open Containers.List.Operations
     open Boolean.Operations renaming (_eq_ to Bool-eq)
     open Functions.Iteration.Definition
     
@@ -2058,6 +2526,36 @@ euclidean metric a result of pure number theory?
 
 -}
 
+{-
+Negation:
+1. [](¬P) → ¬(<>P)
+2. ¬(<>P) → [](¬P)
+3. <>(¬P) → ¬([]P)
+4. ¬([]P) → <>(¬P)  -- couldn't prove, probably not constructively valid
+
+
+
+Identity:
+1. [](P) → ¬(<>(¬P))
+2. <>(P) → ¬([](¬P))
+3. ¬(<>(¬P)) → []P   -- couldn't prove, probably not constructively valid
+4. ¬([](¬P)) → <>P   -- couldn't prove, probably not constructively valid
+
+
+Axioms:
+1. P → []P                          -- N rule; asserted
+2. [](P → Q) → ([]P → []Q)        -- K rule; tautologous
+3. []P → P                          -- T rule; assuming reflexivity
+4. []P → [][]P                      -- 4 rule; assuming transitivity
+5. <>P → []<>P                      -- 5 rule; assuming symmetry & transitivity
+6. P → []<>P                        -- B rule; assuming reflexivity, transitivity and N-rule
+7. []P → <>P                        -- D rule; assuming reflexivity
+
+ 
+
+-}
+
+
 module ModalLogic where
  module Semantics1 where
   module Necessity where
@@ -2079,9 +2577,9 @@ module ModalLogic where
   module Properties where
    open BaseDefinitions.Equality.Definition
    open BaseDefinitions.Negation.Definition
-   open BaseDefinitions.Relations.BinaryRelations.Properties.Reflexivity
-   open BaseDefinitions.Relations.BinaryRelations.Properties.Symmetry
-   open BaseDefinitions.Relations.BinaryRelations.Properties.Transitivity
+   open Relations.BinaryRelations.Properties.Reflexivity
+   open Relations.BinaryRelations.Properties.Symmetry
+   open Relations.BinaryRelations.Properties.Transitivity
    open Functions.Composition.Definition
    open Necessity
    open Possibility
@@ -2296,6 +2794,7 @@ module SKI where
   module Syntax4Semantics1 where
    open Syntax4
    open BaseDefinitions.BaseTypes.List
+   open Containers.List.Operations
    module OneStep where
     Δ : Term → Term
     Δ ([ I , ( ([ a , xs ]) ∷ ys) ]) = [ a , (xs ++ ys) ]
@@ -2361,6 +2860,7 @@ module SKI where
   module Syntax6Semantics1 where
    open BaseDefinitions.BaseTypes.List
    open BaseDefinitions.BaseTypes.Vector
+   open Containers.List.Operations
    open Syntax6
    Δ : Expression → Term
    Δ [ I , ([ x , xs ] ∷ []) ] = [ x , xs ]
@@ -2391,7 +2891,8 @@ module SKI where
 
 
   module Semantics2 where
-   open BaseDefinitions.BaseTypes.List renaming (_∷_ to _,_; _++_ to List++)
+   open BaseDefinitions.BaseTypes.List renaming (_∷_ to _,_)
+   open Containers.List.Operations renaming (_++_ to List++ ; [_] to mkList)
    open Syntax2
    module OneStep where
     Δ : Term → Term
@@ -2433,17 +2934,17 @@ module SKI where
 
    module Properties where
     open BaseDefinitions.Equality.Definition
-    open BaseDefinitions.Equality.Properties
+    open Equality.Properties
     open BaseDefinitions.Sum
     open BaseDefinitions.Product
     open BaseDefinitions.BaseTypes.Nat
     open BaseDefinitions.BaseTypes.Bool
-    open BaseDefinitions.Relations.Properties.Reflexivity
-    open BaseDefinitions.Relations.Properties.Transitivity
+    open Relations.Properties.Reflexivity
+    open Relations.Properties.Transitivity
     open BaseDefinitions.BaseTypes.Fin.Definition
-    open BaseDefinitions.BaseTypes.Fin.Operations
-    open BaseDefinitions.BaseTypes.Fin.Properties
-    open BaseDefinitions.BaseTypes.List renaming (_++_ to List++)
+    open BaseArithmetic.FinOperations
+    open BaseDefinitions.BaseTypes.List
+    open Containers.List.Operations renaming (_++_ to List++ ; [_] to mkList)
     open BaseArithmetic.Operations
     open Functions.Composition.Definition
     open Functions.Iteration.Definition
@@ -2743,7 +3244,8 @@ module SKI where
   module Playground2 where
    open BaseDefinitions.Product renaming (_,_ to pair)
    open BaseDefinitions.Equality.Definition
-   open BaseDefinitions.BaseTypes.List renaming (_∷_ to _,_; _++_ to List++)
+   open BaseDefinitions.BaseTypes.List renaming (_∷_ to _,_)
+   open Containers.List.Operations renaming (_++_ to List++ ; [_]  to mkList)
    open BaseDefinitions.BaseTypes.Nat renaming (Nat to ℕ)
    open Syntax2
    open Semantics2
@@ -2796,8 +3298,18 @@ module SKI where
      proof 
    -}
 
+   -- Reduction of SKI combinators to graph-rewriting:
+   -- http://hackage.haskell.org/package/graph-rewriting-ski
+   
+   -- Reduction of SKI combinators to string-rewriting
+   --
+
+   -- John Lamping -- An algorithm for optimal lambda calculus reduction
+   -- http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.90.2386
+   -- https://www.reddit.com/r/haskell/comments/2zqtfk/why_isnt_anyone_talking_about_optimal_lambda/
+
 module Equivalence where
- open BaseDefinitions.Relations
+ open Relations
 
 module Sets where
  module PropositionalSets where
@@ -2807,17 +3319,27 @@ module Sets where
   open BaseDefinitions.Sum
   open BaseDefinitions.Equality.Definition
   open BaseDefinitions.BaseTypes.Unit
+  open Relations
   Subset : ∀ {i j} (A : Set i) → Set ((lsuc j) ⊔ i)
   Subset {i} {j} A = A → Set j
 
  -- finite sets with HITs
  -- https://dl.acm.org/citation.cfm?id=3167085
 
-  _⊆_ : ∀ {i j} {A : Set i} (X Y : Subset {i} {j} A) → Set (i ⊔ j)
-  _⊆_ {i} {j} {A} X Y = (a : A) → X a → Y a
+  _⊆_ : ∀ {i j k} {A : Set i} (X : Subset {i} {j} A) → (Y  : Subset {i} {k} A) → Set (i ⊔ (j ⊔ k))
+  _⊆_ {i} {j} {k} {A} X Y = (a : A) → X a → Y a
+
+  _~_ : ∀ {i j k} {A : Set i} (X : Subset {i} {j} A) → (Y : Subset {i} {k} A) → Set (i ⊔ (j ⊔ k))
+  X ~ Y = (X ⊆ Y) ∧ (Y ⊆ X)
 
   _∈_ : ∀ {i j} {A : Set i} → A → (X : Subset {i} {j} A) → Set j
   a ∈ X = X a
+
+  Inhabited : ∀ {i j} {A : Set i} → (X : Subset {i} {j} A) → Set (i ⊔ j)
+  Inhabited {A = A} X = ∃ a ∈ A , (X a)
+
+  [_] : ∀ {i} {A : Set i} → A → Subset {i} {i} A
+  [ x ] a = x ≡ a
 
   _-_ : ∀ {i j} {A : Set i} → Subset {i} {j} A → A → Subset {i} {(i ⊔ j)} A
   (X - a) x = (X x) ∧ (x ≠ a)
@@ -2828,20 +3350,689 @@ module Sets where
   _∩_ : ∀ {i j k} {A : Set i} → Subset {i} {j} A → Subset {i} {k} A → Subset {i} {(j ⊔ k)} A
   (A ∩ B) x = (A x) ∧ (B x)
 
+-- A \ B = A ∩ (B ᶜ)
+  -- symmetric difference
+  -- https://en.wikipedia.org/wiki/Symmetric_difference
+  _⨁_ : ∀ {i j k} {A : Set i} → Subset {i} {j} A → Subset {i} {k} A → Subset {i} {(j ⊔ k)} A
+  (A ⨁ B) x = ((A x) ∧ (¬ (B x))) ∨ ((¬ (A x)) ∧ (B x))
+  
+
+  X∩Y⊆X : ∀ {i j k} {A : Set i} → (X : Subset {i} {j} A) → (Y : Subset {i} {k} A) → (X ∩ Y) ⊆ X
+  X∩Y⊆X X Y a p = first p
+
+  X∩Y⊆Y : ∀ {i j k} {A : Set i} → (X : Subset {i} {j} A) → (Y : Subset {i} {k} A) → (X ∩ Y) ⊆ Y
+  X∩Y⊆Y X Y a p = second p
+
+  X⊆X∪Y : ∀ {i j k} {A : Set i} → (X : Subset {i} {j} A) → (Y : Subset {i} {k} A) → X ⊆ (X ∪ Y)
+  X⊆X∪Y X Y a Xa = inl Xa
+
+  Y⊆X∪Y : ∀ {i j k} {A : Set i} → (X : Subset {i} {j} A) → (Y : Subset {i} {k} A) → Y ⊆ (X ∪ Y)
+  Y⊆X∪Y X Y a Ya = inr Ya 
+
   _ᶜ : ∀ {i j} {A : Set i} → Subset {i} {j} A → Subset {i} {j} A
   (A ᶜ) x = ¬ (A x)
 
-  -- A \ B = A ∩ (B ᶜ)
+  [X∪Y]⊆[Y∪X] : ∀ {i j k} {A : Set i} → (X : Subset {i} {j} A) → (Y : Subset {i} {k} A) → (X ∪ Y) ⊆ (Y ∪ X)
+  [X∪Y]⊆[Y∪X] {i} {j} {k} {A} X Y a (inl Xa) = inr Xa
+  [X∪Y]⊆[Y∪X] {i} {j} {k} {A} X Y a (inr Ya) = inl Ya
 
+  [X∩Y]⊆[Y∩X] : ∀ {i j k} {A : Set i} → (X : Subset {i} {j} A) → (Y : Subset {i} {k} A) → (X ∩ Y) ⊆ (Y ∩ X)
+  [X∩Y]⊆[Y∩X] {i} {j} {k} {A} X Y a (Xa , Ya) = (Ya , Xa)
+
+
+  
+
+  
   FullSubset : ∀ {i} (A : Set i) → Subset {i} {lzero} A
   FullSubset A x = ⊤
-
+  
   EmptySubset : ∀ {i} (A : Set i) → Subset {i} {lzero} A
   EmptySubset A x = ⊥
 
+  ⊆-refl : ∀ {i j} {A : Set i} → (X : Subset {i} {j} A) → X ⊆ X
+  ⊆-refl {i} {j} {A} X a Xa = Xa
+
+  ⊆-trans :
+   ∀ {i j k l} {A : Set i}
+   {X : Subset {i} {j} A}
+   {Y : Subset {i} {k} A}
+   {Z : Subset {i} {l} A} →
+   X ⊆ Y → Y ⊆ Z → X ⊆ Z
+  ⊆-trans X⊆Y Y⊆Z a Xa = Y⊆Z a (X⊆Y a Xa)
+
+  {-
+  yesyyriyto5i[69=0u=8[9uo7ly6ugjtrfeyhrrt5k858uy-7[7uy
+  -}
+
+
+  {-
+  -- any preorder R defines in a standard way:
+   -- a partial order: by declaring x ~ y iff  R x y ∧ R y x
+   -- an equivalence: by taking the symmetric closure
+  -- all equivalence relations are partial orders using themselves as the
+    -- underlying equivalence relation for the antisymmetry property
+    
+  ⊆-antisym : ∀ {i j k} {A : Set i} → (X : Subset {i} {j} A) → (Y : Subset {i} {k} A) → X ⊆ Y → Y ⊆ X → 
+
+  -}
+
+  ⨁-lemma : ∀ {i j k} {A : Set i} (X : A → Set j) (Y : A → Set k) → (X ~ Y) → ¬ (Inhabited (X ⨁ Y))
+  ⨁-lemma X Y (X-sub-Y , Y-sub-X) (x , (inl (Xx , ¬Yx))) = ¬Yx (X-sub-Y x Xx)
+  ⨁-lemma X Y (X-sub-Y , Y-sub-X) (x , (inr (¬Xx , Yx))) = ¬Xx (Y-sub-X x Yx)
+
+  Disjoint₂ : ∀ {i j k} {A : Set i} (X : A → Set j) (Y : A → Set k) → Set (i ⊔ (j ⊔ k)) 
+  Disjoint₂ {i} {j} {k} {A} X Y = (a : A) → ¬ ((X a) ∧ (Y a)) 
+  -- could also define as (X ∩ Y) ~ ∅
+
+  Disjoint₂-1 : ∀ {i j k} {A : Set i} (X : A → Set j) (Y : A → Set k) → Set (i ⊔ (j ⊔ k))
+  Disjoint₂-1 {i} {j} {k} {A} X Y = ((a : A) → ¬ ((X a) ∧ (Y a))) ∨ (X ~ Y)
+
+  Disjoint₂-2 : ∀ {i j k} {A : Set i} (X : A → Set j) (Y : A → Set k) → Set (i ⊔ (j ⊔ k))
+  Disjoint₂-2 {i} {j} {k} {A} X Y = ¬ ((Inhabited (X ∩ Y)) ∧ (Inhabited (X ⨁ Y)))
+
+  -- this is probably the one to use
+  Disjoint₂-3 : ∀ {i j k} {A : Set i} (X : A → Set j) (Y : A → Set k) → Set (i ⊔ (j ⊔ k))
+  Disjoint₂-3 {i} {j} {k} {A} X Y = Inhabited (X ∩ Y) → X ~ Y
+
+  Disjoint₂-4 : ∀ {i j k} {A : Set i} (X : A → Set j) (Y : A → Set k) → Set (i ⊔ (j ⊔ k))
+  Disjoint₂-4 {i} {j} {k} {A} X Y = Inhabited (X ⨁ Y) → Disjoint₂ X Y
+  
+  Disjoint₂-0,1 : ∀ {i j k} {A : Set i} (X : A → Set j) (Y : A → Set k) → Disjoint₂ X Y → Disjoint₂-1 X Y
+  Disjoint₂-0,1 X Y XY-disjoint-0 = inl XY-disjoint-0
+
+  Disjoint₂-1,2 : ∀ {i j k} {A : Set i} (X : A → Set j) (Y : A → Set k) → Disjoint₂-1 X Y → Disjoint₂-2 X Y
+  Disjoint₂-1,2 {i} {j} {k} {A} X Y (inl XY-disjoint-0) ((a , (Xa , Ya)) , X⨁Y) = XY-disjoint-0 a (Xa , Ya)
+  Disjoint₂-1,2 {i} {j} {k} {A} X Y (inr (X-sub-Y , Y-sub-X)) (X∩Y , (a , inl (Xa , ¬Ya))) = ¬Ya (X-sub-Y a Xa)
+  Disjoint₂-1,2 {i} {j} {k} {A} X Y (inr (X-sub-Y , Y-sub-X)) (X∩Y , (a , inr (¬Xa , Ya))) = ¬Xa (Y-sub-X a Ya)
+
+  Disjoint₂-1,3 : ∀ {i j k} {A : Set i} (X : A → Set j) (Y : A → Set k) → Disjoint₂-1 X Y → Disjoint₂-3 X Y
+  Disjoint₂-1,3 {i} {j} {k} {A} X Y (inl XY-disjoint-0) (a , (Xa , Ya)) = ω (XY-disjoint-0 a (Xa , Ya))
+  Disjoint₂-1,3 {i} {j} {k} {A} X Y (inr X~Y) X∩Y = X~Y
+
+  Disjoint₂-1,4 : ∀ {i j k} {A : Set i} (X : A → Set j) (Y : A → Set k) → Disjoint₂-1 X Y → Disjoint₂-4 X Y
+  Disjoint₂-1,4 {i} {j} {k} {A} X Y (inl XY-disjoint-0) X⨁Y = XY-disjoint-0
+  Disjoint₂-1,4 {i} {j} {k} {A} X Y (inr (X-sub-Y , Y-sub-X)) (a , (inl (Xa , ¬Ya))) b (Xb , Yb) = ¬Ya (X-sub-Y a Xa)
+  Disjoint₂-1,4 {i} {j} {k} {A} X Y (inr (X-sub-Y , Y-sub-X)) (a , (inr (¬Xa , Ya))) b (Xb , Yb) = ¬Xa (Y-sub-X a Ya)
+
+  Disjoint₂-3,4 : ∀ {i j k} {A : Set i} (X : A → Set j) (Y : A → Set k) → Disjoint₂-3 X Y → Disjoint₂-4 X Y
+  Disjoint₂-3,4 {i} {j} {k} {A} X Y XY-disjoint-3 (a , (inl (Xa , ¬Ya))) b (Xb , Yb) = ¬Ya ((first (XY-disjoint-3 (b , (Xb , Yb)))) a Xa)
+  Disjoint₂-3,4 {i} {j} {k} {A} X Y XY-disjoint-3 (a , (inr (¬Xa , Ya))) b (Xb , Yb) = ¬Xa ((second (XY-disjoint-3 (b , (Xb , Yb)))) a Ya)
+
+  
+  Disjoint₂-3,2 : ∀ {i j k} {A : Set i} (X : A → Set j) (Y : A → Set k) → Disjoint₂-3 X Y → Disjoint₂-2 X Y
+  Disjoint₂-3,2 {i} {j} {k} {A} X Y XY-disjoint-3 (X∩Y , X⨁Y) = ⨁-lemma X Y (XY-disjoint-3 X∩Y) X⨁Y
+
+  Disjoint₂-2,4 : ∀ {i j k} {A : Set i} (X : A → Set j) (Y : A → Set k) → Disjoint₂-2 X Y → Disjoint₂-4 X Y
+  Disjoint₂-2,4 {i} {j} {k} {A} X Y XY-disjoint-2 X⨁Y x (Xx , Yx) = XY-disjoint-2 ((x , (Xx , Yx)) , X⨁Y)
+
+  Disjoint₂-4,2 : ∀ {i j k} {A : Set i} (X : A → Set j) (Y : A → Set k) → Disjoint₂-4 X Y → Disjoint₂-2 X Y
+  Disjoint₂-4,2 {i} {j} {k} {A} X Y XY-disjoint-4 ((x , (Xx , Yx)) , X⨁Y) = XY-disjoint-4 X⨁Y x (Xx , Yx)
+
+  
+
+  -- not really as useful because we can't constrain not to have (extensional) duplicates
+  Disjoint : ∀ {i j k} {A : Set i} (P : ((A → Set j) → Set k)) → Set (i ⊔ ((lsuc j) ⊔ k))
+  Disjoint {i} {j} {k} {A} P = (p q : (A → Set j)) → P p → P q → Disjoint₂ p q
+
+  
+  Disjoint-1 : ∀ {i j k} {A : Set i} (P : ((A → Set j) → Set k)) → Set (i ⊔ ((lsuc j) ⊔ k))
+  Disjoint-1 {i} {j} {k} {A} P = (p q : (A → Set j)) → P p → P q → (Disjoint₂-1 p q)
+
+
+  Disjoint-2 : ∀ {i j k} {A : Set i} (P : ((A → Set j) → Set k)) → Set (i ⊔ ((lsuc j) ⊔ k))
+  Disjoint-2 {i} {j} {k} {A} P = (p q : (A → Set j)) → P p → P q → (Disjoint₂-2 p q)
+
+  Disjoint-3 : ∀ {i j k} {A : Set i} (P : ((A → Set j) → Set k)) → Set (i ⊔ ((lsuc j) ⊔ k))
+  Disjoint-3 {i} {j} {k} {A} P = (p q : (A → Set j)) → P p → P q → (Disjoint₂-3 p q)
+
+
+  
+  Covering : ∀ {i j k} {A : Set i} (P : ((A → Set j) → Set k)) → Set (i ⊔ ((lsuc j) ⊔ k))
+  Covering {i} {j} {k} {A} P = (a : A) → ∃ p ∈ (A → Set j) , ((P p) ∧ (p a))
+
+
+  Partition : ∀ {i j k} {A : Set i} (P : ((A → Set j) → Set k)) → Set (i ⊔ ((lsuc j) ⊔ k))
+  Partition {i} {j} {k} {A} P = (Disjoint P) ∧ (Covering P)
+
+  Partition-1 : ∀ {i j k} {A : Set i} (P : ((A → Set j) → Set k)) → Set (i ⊔ ((lsuc j) ⊔ k))
+  Partition-1 {i} {j} {k} {A} P = (Disjoint-1 P) ∧ (Covering P)
+
+
+  Partition-2 : ∀ {i j k} {A : Set i} (P : ((A → Set j) → Set k)) → Set (i ⊔ ((lsuc j) ⊔ k))
+  Partition-2 {i} {j} {k} {A} P = (Disjoint-2 P) ∧ (Covering P)
+
+  Partition-3 : ∀ {i j k} {A : Set i} (P : ((A → Set j) → Set k)) → Set (i ⊔ ((lsuc j) ⊔ k))
+  Partition-3 {i} {j} {k} {A} P = (Disjoint-3 P) ∧ (Covering P)
+
+
+  _is_-closed : ∀ {i j k} {A : Set i} (S : A → Set j) → (R : A → A → Set k) → Set (i ⊔ (j ⊔ k))
+  _is_-closed {i} {j} {k} {A} S R = (x y : A) → S x → R x y → S y
+
+  _has_-semiclosure_ : ∀ {i j k l} {A : Set i} (S : A → Set j) → (R : A → A → Set k) → (T : A → Set l) → Set (i ⊔ (j ⊔ (k ⊔ l)))
+  S has R -semiclosure T = (S ⊆ T) ∧ (T is R -closed)
+
+  -- notice the level-breaking, because FOL can't define closure
+  _has_-closure_ : ∀ {i j k l m} {A : Set i} (S : A → Set j) → (R : A → A → Set k) → (T : A → Set l) → Set (i ⊔ (j ⊔ (k ⊔ (l ⊔ (lsuc m)))))
+  _has_-closure_ {m = m} {A = A} S R T = (S has R -semiclosure T) ∧ ((U : A → Set m) → S has R -semiclosure U → T ⊆ U)
+
+  closures-unique : ∀ {i j k} {A : Set i} {S : A → Set j} {R : A → A → Set k} {T U : A → Set j} → S has R -closure T → S has R -closure U → T ~ U
+  closures-unique
+   {A = A} {T = T} {U = U}
+   (T-semiclosure , T-minimal)
+   (U-semiclosure , U-minimal)
+   = (T⊆U , U⊆T)
+   where
+    T⊆U = T-minimal U U-semiclosure 
+    U⊆T = U-minimal T T-semiclosure
+
+  -- define equivalence classes as ~-closed subsets
+  -- no because this could include multiple equivalence classes
+  
+  _is-[_,_]-equivalenceClass : ∀ {i j k m} {A : Set i} (S : A → Set j) → (R : A → A → Set k) → Equivalence R → Set (i ⊔ (j ⊔ (k ⊔ (lsuc m))))  
+  _is-[_,_]-equivalenceClass {m = m} {A = A} S R eq = ∃ x ∈ A , (_has_-closure_ {m = m} ([ x ]) R S)
+
+  -- given an object, give back its equivalence class:
+  mkEquiv : ∀ {i j} {A : Set i} → A → (_~_ : A → A → Set j) → Equivalence _~_ → Subset {i} {j} A
+  mkEquiv {i} {j} {A} x _~_ eq y = x ~ y
+
+  mkEquivClosureLemma : ∀ {i j m} {A : Set i} → (x : A) → (R : A → A → Set j) → (eq : Equivalence R) → _has_-closure_ {m = m} ([ x ]) R (mkEquiv x R eq)
+  mkEquivClosureLemma {i} {j} {m} {A} x R eq = (( x-sub-S , S-closed) , S-minimal)
+   where
+    open Relations.Equivalence eq
+    
+    S : A → Set j
+    S = mkEquiv x R eq
+    
+    x-sub-S : [ x ] ⊆ S
+    x-sub-S .x refl = reflexive x
+    
+    S-closed : S is R -closed
+    S-closed a b Sa Rab = transitive Sa Rab
+    
+    S-minimal : (T : A → Set m) → [ x ] has R -semiclosure T → S ⊆ T
+    S-minimal T (x-sub-T , T-closed) a Rxa = Ta
+     where
+      Tx = x-sub-T x refl
+
+      Ta = T-closed x a Tx Rxa
+    
+
+  mkEquivClassLemma : ∀ {i j m} {A : Set i} → (x : A) → (R : A → A → Set j) → (eq : Equivalence R) → _is-[_,_]-equivalenceClass {m = m} (mkEquiv x R eq) R eq
+  mkEquivClassLemma x R eq = ( x , mkEquivClosureLemma x R eq)
+
+  mkEquivIndependence : ∀ {i j} {A : Set i} → (x y : A) → (R : A → A → Set j) → (eq : Equivalence R) → R x y → (mkEquiv x R eq) ~ (mkEquiv y R eq)
+  mkEquivIndependence {i} {j} {A} x y R eq Rxy = (<x>-sub-<y> , <y>-sub-<x>)
+   where
+    open Relations.Equivalence eq
+    
+    <x> = mkEquiv x R eq
+    <y> = mkEquiv y R eq
+    
+    <x>-sub-<y> : <x> ⊆ <y>
+    <x>-sub-<y> a Rxa = transitive (symmetric Rxy) Rxa
+      
+
+    <y>-sub-<x> : <y> ⊆ <x>
+    <y>-sub-<x> a Rya = transitive Rxy Rya
+
+  mkEquivMembershipLemma : ∀ {i j} {A : Set i} → (R : A → A → Set j) → (eq : Equivalence R) → (x y z : A) → ((mkEquiv x R eq) y) → ((mkEquiv x R eq) z) → R y z
+  mkEquivMembershipLemma {i} {j} {A} R eq x y z Rxy Rxz = Ryz
+   where
+    open Relations.Equivalence eq
+    Ryz = transitive (symmetric Rxy) Rxz
+
+  EquivClassMembershipLemma1 : ∀ {i j k m} {A : Set i} (R : A → A → Set j) → (eq : Equivalence R) → (S : A → Set k) → (q : _is-[_,_]-equivalenceClass {m = m} S R eq) → (mkEquiv (π₁ q) R eq) ⊆ S
+  EquivClassMembershipLemma1 {i} {j} {k} {m} {A} R eq S (x , (([x]-sub-S , S-closed), S-minimal)) a Rxa = Sa
+   where
+    <x> = mkEquiv x R eq
+
+    Sx : S x
+    Sx = [x]-sub-S x refl
+    
+    Sa = S-closed x a Sx Rxa
+
+  
+  
+  EquivClassCharacterizationLemma : ∀ {i j k} {A : Set i} → (R : A → A → Set j) → (eq : Equivalence R) → (S : A → Set k) → _is-[_,_]-equivalenceClass {m = j} S R eq → ∃ x ∈ A , (S ~ (mkEquiv x R eq))
+  EquivClassCharacterizationLemma {i} {j} {k} {A} R eq S (x , (S-semiclosure , S-minimal)) = x , (S-sub-<x> , <x>-sub-S)
+   where
+    <x> = mkEquiv x R eq
+
+    [x]-closure : _has_-closure_ {m = k} [ x ] R <x> 
+    [x]-closure = mkEquivClosureLemma {m = k} x R eq
+
+    
+    S-sub-<x> = S-minimal <x> (first [x]-closure)
+    
+    <x>-sub-S = (second [x]-closure) S S-semiclosure
+
+
+  
+  EquivClassMembershipLemma : ∀ {i j k} {A : Set i} (R : A → A → Set j) → (eq : Equivalence R) → (S : A → Set k) → _is-[_,_]-equivalenceClass {m = j} S R eq → (x y : A) → S x → S y → R x y
+  EquivClassMembershipLemma {i} {j} {k} {A} R eq S (z , (([z]-sub-S , S-closed) , S-minimal)) x y Sx Sy = Rxy
+   where
+    open Relations.Equivalence eq
+    
+    <z> = mkEquiv z R eq
+  
+    characterization : ∃ q ∈ A , (S ~ (mkEquiv q R eq))
+    characterization = EquivClassCharacterizationLemma R eq S (z , (([z]-sub-S , S-closed) , S-minimal))
+
+    S-sub-<z> : S ⊆ <z>
+    S-sub-<z> = first (π₂ characterization)
+
+    Rzx : R z x
+    Rzx = S-sub-<z> x Sx
+
+    Rzy : R z y
+    Rzy = S-sub-<z> y Sy
+
+    Rxy : R x y
+    Rxy = transitive (symmetric Rzx) Rzy
+
+
+  -- given an equivalence relation, give back its equivalence classes
+  getEquivs : ∀ {i j k m} {A : Set i} → (R : A → A → Set j) → Equivalence R → (A → Set k) → Set (i ⊔ (j ⊔ (k ⊔ (lsuc m))))
+  getEquivs {i} {j} {k} {m} R eq S = _is-[_,_]-equivalenceClass {m = m} S R eq
+
+  
+  mkEquivDisjointnessLemma : ∀ {i j} {A : Set i} → (R : A → A → Set j) → (eq : Equivalence R) → (x y : A) → ¬ (R x y) → Disjoint₂ (mkEquiv x R eq) (mkEquiv y R eq)
+  mkEquivDisjointnessLemma {i} {j} {A} R eq x y ¬Rxy a (Rxa , Rya) = ¬Rxy Rxy
+   where
+    open Relations.Equivalence eq
+    Rxy = transitive Rxa (symmetric Rya)
+
+
+  EquivClassIntersectionLemma : ∀ {i j k l} {A : Set i} → (R : A → A → Set j) → (eq : Equivalence R) → (S : A → Set k) → (T : A → Set l) → _is-[_,_]-equivalenceClass {m = j} S R eq → _is-[_,_]-equivalenceClass {m = j} T R eq → Inhabited (S ∩ T) → S ~ T
+  EquivClassIntersectionLemma {i} {j} {k} {l} {A} R eq S T S-class T-class (a , (Sa , Ta)) = (S-sub-T , T-sub-S)
+   where
+    open Relations.Equivalence eq
+
+    -- remove redundancies
+    S-characterization : ∃ x ∈ A , (S ~ (mkEquiv x R eq))
+    S-characterization = EquivClassCharacterizationLemma R eq S S-class
+
+    x : A
+    x = π₁ S-characterization
+
+    <x> : A → Set j
+    <x> = mkEquiv x R eq
+
+    S-sub-<x> : S ⊆ <x>
+    S-sub-<x> = first (π₂ S-characterization)
+
+    <x>-sub-S : <x> ⊆ S
+    <x>-sub-S = second (π₂ S-characterization)
+
+
+    Rxa : R x a
+    Rxa = S-sub-<x> a Sa
+
+    T-characterization : ∃ y ∈ A , (T ~ (mkEquiv y R eq))
+    T-characterization = EquivClassCharacterizationLemma R eq T T-class
+
+    y : A
+    y = π₁ T-characterization
+
+    <y> : A → Set j
+    <y> = mkEquiv y R eq
+
+    T-sub-<y> : T ⊆ <y>
+    T-sub-<y> = first (π₂ T-characterization)
+
+    <y>-sub-T : <y> ⊆ T
+    <y>-sub-T = second (π₂ T-characterization)
+
+    Rya : R y a
+    Rya = T-sub-<y> a Ta
+
+    Rxy : R x y
+    Rxy = transitive Rxa (symmetric Rya)
+
+    <x>~<y> : <x> ~ <y>
+    <x>~<y> = mkEquivIndependence x y R eq Rxy
+
+    S-sub-T = ⊆-trans S-sub-<x> (⊆-trans (first <x>~<y>) <y>-sub-T) 
+    T-sub-S = ⊆-trans T-sub-<y> (⊆-trans (second <x>~<y>) <x>-sub-S)
+
+  EquivClassDifferenceLemma : ∀ {i j k l} {A : Set i} → (R : A → A → Set j) → (eq : Equivalence R) → (S : A → Set k) → (T : A → Set l) → _is-[_,_]-equivalenceClass {m = j} S R eq → _is-[_,_]-equivalenceClass {m = j} T R eq → Inhabited (S ⨁ T) → Disjoint₂ S T
+  EquivClassDifferenceLemma {i} {j} {k} {l} {A} R eq S T S-class T-class (a , (inl (Sa , ¬Ta))) x (Sx , Tx) = contradiction
+   where
+    S~T : S ~ T
+    S~T = EquivClassIntersectionLemma R eq S T S-class T-class (x , (Sx , Tx))   
+    contradiction = ¬Ta ((first S~T) a Sa)
+  EquivClassDifferenceLemma {i} {j} {k} {l} {A} R eq S T S-class T-class (a , (inr (¬Sa , Ta))) x (Sx , Tx) = contradiction
+   where
+    S~T : S ~ T
+    S~T = EquivClassIntersectionLemma R eq S T S-class T-class (x , (Sx , Tx))      
+    contradiction = ¬Sa ((second S~T) a Ta)
+  
+
+  
+  EquivPartitionLemma : ∀ {i j} {A : Set i} → (R : A → A → Set j) → (eq : Equivalence R) → Partition-2 {i} {j} {i ⊔ (lsuc j)} {A} (getEquivs {i} {j} {j} {j} R eq)
+  EquivPartitionLemma {i} {j} {A} R eq = (disjoint , covering)
+   where
+    open Relations.Equivalence eq
+    
+    P : (A → Set j) → Set (i ⊔ (lsuc j))
+    P = getEquivs {i} {j} {j} {j} R eq
+
+    covering : (a : A) → ∃ p ∈ (A → Set j) , ((P p) ∧ (p a))
+    covering a = (mkEquiv a R eq , (P[a] , [a]a))
+     where
+      P[a] : P (mkEquiv a R eq)
+      P[a] = mkEquivClassLemma a R eq
+      
+      [a]a : (mkEquiv a R eq) a
+      [a]a = reflexive a
+    
+    
+    disjoint : (p q : A → Set j) → P p → P q → Disjoint₂-2 p q
+    disjoint p q Pp Pq ((a , (pa , qa)) , diff-pq) = EquivClassDifferenceLemma R eq p q Pp Pq diff-pq a (pa , qa) 
+
+  EquivPartition3Lemma : ∀ {i j} {A : Set i} → (R : A → A → Set j) → (eq : Equivalence R) → Partition-3 {i} {j} {i ⊔ (lsuc j)} {A} (getEquivs {i} {j} {j} {j} R eq)
+  EquivPartition3Lemma {i} {j} {A} R eq = (disjoint , covering)
+   where
+    open Relations.Equivalence eq
+    
+    P : (A → Set j) → Set (i ⊔ (lsuc j))
+    P = getEquivs {i} {j} {j} {j} R eq
+
+    covering : (a : A) → ∃ p ∈ (A → Set j) , ((P p) ∧ (p a))
+    covering a = (mkEquiv a R eq , (P[a] , [a]a))
+     where
+      P[a] : P (mkEquiv a R eq)
+      P[a] = mkEquivClassLemma a R eq
+      
+      [a]a : (mkEquiv a R eq) a
+      [a]a = reflexive a
+    
+    disjoint : (p q : A → Set j) → P p → P q → Inhabited (p ∩ q) → p ~ q
+    disjoint p q Pp Pq p∩q = EquivClassIntersectionLemma R eq p q Pp Pq p∩q
+
+  PartitionClass : ∀ {i j k} {A : Set i} → (P : (A → Set j) → Set k) → Partition-2 P → A → A → Set (i ⊔ ((lsuc j) ⊔ k))
+  PartitionClass {i} {j} {k} {A} P P-partition x y = ∃ p ∈ (A → Set j) , ((P p) ∧ (p x) ∧ (p y))
+
+  Partition3Class : ∀ {i j k} {A : Set i} → (P : (A → Set j) → Set k) → Partition-3 P → A → A → Set (i ⊔ ((lsuc j) ⊔ k))
+  Partition3Class {i} {j} {k} {A} P P-partition x y = ∃ p ∈ (A → Set j) , ((P p) ∧ (p x) ∧ (p y))
+
+  PartitionClass-refl : ∀ {i j k} {A : Set i} → (P : (A → Set j) → Set k) → (P-partition : Partition-2 P) → (x : A) → PartitionClass P P-partition x x
+  PartitionClass-refl {i} {j} {k} {A} P (P-disjoint , P-covering) x = (p , (Pp , (px , px)))
+   where
+    p = π₁ (P-covering x)
+    Pp = first (π₂ (P-covering x))
+    px = second (π₂ (P-covering x))
+
+  Partition3Class-refl :  ∀ {i j k} {A : Set i} → (P : (A → Set j) → Set k) → (P-partition : Partition-3 P) → (x : A) → Partition3Class P P-partition x x
+  Partition3Class-refl {i} {j} {k} {A} P (P-disjoint , P-covering) x = (p , (Pp , (px , px)))
+   where
+    p = π₁ (P-covering x)
+    Pp = first (π₂ (P-covering x))
+    px = second (π₂ (P-covering x))
+    
+
+  PartitionClass-symm : ∀ {i j k} {A : Set i} → (P : (A → Set j) → Set k) → (P-partition : Partition-2 P) → (x y : A) → PartitionClass P P-partition x y → PartitionClass P P-partition y x
+  PartitionClass-symm {i} {j} {k} {A} P P-partition x y (p , (Pp , (px , py))) = (p , (Pp , (py , px)))
+
+  Partition3Class-symm : ∀ {i j k} {A : Set i} → (P : (A → Set j) → Set k) → (P-partition : Partition-3 P) → {x y : A} → Partition3Class P P-partition x y → Partition3Class P P-partition y x
+  Partition3Class-symm {i} {j} {k} {A} P P-partition {x} {y} (p , (Pp , (px , py))) = (p , (Pp , (py , px)))
+
+
+  {-
+  PartitionClass-trans : ∀ {i j k} {A : Set i} → (P : (A → Set j) → Set k) → (P-partition : Partition'' P) → (x y z : A) → PartitionClass P P-partition x y → PartitionClass P P-partition y z → PartitionClass P P-partition x z
+  PartitionClass-trans {i} {j} {k} {A} P (P-disjoint , P-covering) x y z (p , (Pp , (px , py))) (q , (Pq , (qy , qz))) = (p , (Pp , (px , pz)))
+   where
+    pq-disjoint₂'' : ¬ ((Inhabited (p ∩ q)) ∧ (Inhabited (p ⨁ q)))
+    pq-disjoint₂'' = P-disjoint p q Pp Pq
+
+    p~q : ¬ (Inhabited (p ⨁ q))
+    p~q p⨁q = P-disjoint₂'' ((y , (py , qy)) , 
+
+    pz
+  -}
+
+  Partition3Class-trans : ∀ {i j k} {A : Set i} → (P : (A → Set j) → Set k) → (P-partition : Partition-3 P) → {x y z : A} → Partition3Class P P-partition x y → Partition3Class P P-partition y z → Partition3Class P P-partition x z
+  Partition3Class-trans {i} {j} {k} {A} P (P-disjoint , P-covering) {x} {y} {z} (p , (Pp , (px , py))) (q , (Pq , (qy , qz))) = (p , (Pp , (px , pz)))
+   where
+    p~q : p ~ q
+    p~q = P-disjoint p q Pp Pq (y , (py , qy))
+    
+    pz = (second p~q) z qz 
+
+  Partition3Class-equiv : ∀ {i j k} {A : Set i} → (P : (A → Set j) → Set k) → (P-partition : Partition-3 P) → Equivalence (Partition3Class P P-partition)
+  Partition3Class-equiv {i} {j} {k} {A} P P-partition =
+   record{
+    reflexive = Partition3Class-refl P P-partition ;
+    symmetric = Partition3Class-symm P P-partition ;
+    transitive = Partition3Class-trans P P-partition
+   }
+
+  -- now prove that this translation between partitions and equivalence classes
+  -- is... an equivalence
+  
+  -- getEquivs : ∀ {i j k m} {A : Set i} → (R : A → A → Set j) → Equivalence R → (A → Set k) → Set (i ⊔ (j ⊔ (k ⊔ (lsuc m))))
+  -- Partition3Class : ∀ {i j k} {A : Set i} → (P : (A → Set j) → Set k) → Partition-3 P → A → A → Set (i ⊔ ((lsuc j) ⊔ k))
+  -- PartitionClass {i} {j} {k} {A} P P-partition x y = ∃ p ∈ (A → Set j) , ((P p) ∧ (p x) ∧ (p y))
+ -- _is-[_,_]-equivalenceClass {m = m} {A = A} S R eq = ∃ x ∈ A , (_has_-closure_ {m = m} ([ x ]) R S)
+  --  Covering {i} {j} {k} {A} P = (a : A) → ∃ p ∈ (A → Set j) , ((P p) ∧ (p a))
+  -- EquivClassMembershipLemma : ∀ {i j k} {A : Set i} (R : A → A → Set j) → (eq : Equivalence R) → (S : A → Set k) → _is-[_,_]-equivalenceClass {m = j} S R eq → (x y : A) → S x → S y → R x y
+   
+  PartitionEquivLemma :
+   ∀ {i j k} {A : Set i} →
+   (P : (A → Set j) → Set k) →
+   (P-partition : Partition-3 P) →
+   (p : A → Set j) →
+   _is-[_,_]-equivalenceClass
+     {m = i ⊔ ((lsuc j) ⊔ k)}
+     p
+     (Partition3Class P P-partition)
+     (Partition3Class-equiv P P-partition) →
+   ∃ q ∈ (A → Set j) , ((P q) ∧ (p ~ q))
+  PartitionEquivLemma
+   {i} {j} {k} {A}
+   P
+   (P-disjoint , P-covering)
+   p
+   (x , (([x]-sub-p , p-closed) , p-minimal))
+   = (q , (Pq , (p-sub-q , q-sub-p)))
+    where
+     R : A → A → Set (i ⊔ ((lsuc j) ⊔ k))
+     R = Partition3Class P (P-disjoint , P-covering)
+
+     eq : Equivalence R
+     eq = Partition3Class-equiv P (P-disjoint , P-covering)
+
+     px : p x
+     px = [x]-sub-p x refl
+
+     q = π₁ (P-covering x)
+     Pq = first (π₂ (P-covering x))
+     qx = second (π₂ (P-covering x))
+
+     pa→Rxa : (a : A) → p a → R x a
+     pa→Rxa a pa = EquivClassMembershipLemma R eq p (x , (([x]-sub-p , p-closed) , p-minimal)) x a px pa
+
+     Rxa→qa : (a : A) → R x a → q a
+     Rxa→qa a (r , (Pr , (rx , ra))) = qa
+      where
+       q~r : q ~ r
+       q~r = P-disjoint q r Pq Pr (x , (qx , rx))
+       
+       qa = (second q~r) a ra
+
+     qa→Rxa : (a : A) → q a → R x a
+     qa→Rxa a qa = (q , (Pq , (qx , qa)))
+
+     Rxa→pa : (a : A) → R x a → p a
+     Rxa→pa a Rxa = p-closed x a px Rxa
+
+     p-sub-q : (a : A) → p a → q a
+     p-sub-q a pa = Rxa→qa a (pa→Rxa a pa)
+       
+     q-sub-p : (a : A) → q a → p a
+     q-sub-p a qa = Rxa→pa a (qa→Rxa a qa)
+
+  -- note that it doesn't suffice to just give the subset you have to
+  -- give an inhabitant also
+  PartitionEquivLemma2 :
+   ∀ {i j k} {A : Set i} →
+   (P : (A → Set j) → Set k) →
+   (P-partition : Partition-3 P) →
+   (p : A → Set j) → P p → (a : A) → p a → 
+   ∃ q ∈ (A → Set j) ,
+    ((_is-[_,_]-equivalenceClass
+     {m = i ⊔ ((lsuc j) ⊔ k)}
+     q
+     (Partition3Class P P-partition)
+     (Partition3Class-equiv P P-partition)
+    ) ∧ (p ~ q))
+  PartitionEquivLemma2 {i} {j} {k} {A} P P-partition p Pp a pa = (p , (((a , (([a]-sub-p , p-closed) , p-minimal))) , (p-sub-p , p-sub-p)))
+   where
+    R : A → A → Set (i ⊔ ((lsuc j) ⊔ k))
+    R = Partition3Class P P-partition
+
+    eq : Equivalence R
+    eq = Partition3Class-equiv P P-partition
+
+    P-disjoint = first P-partition
+    P-covering = second P-partition
+
+    -- ∃ p ∈ (A → Set j) , ((P p) ∧ (p x) ∧ (p y))
+ 
+    [a]-sub-p : (x : A) → [ a ] x → p x
+    [a]-sub-p .a refl = pa
+    
+    p-closed : (x y : A) → p x → R x y → p y
+    p-closed x y px (r , (Pr , (rx , ry))) = (second (P-disjoint p r Pp Pr (x , (px , rx)))) y ry
+
+
+    px→Rax : (x : A) → p x → R a x
+    px→Rax x px = (p , (Pp , (pa , px)))
+
+    p-minimal : (U : A → Set (i ⊔ ((lsuc j) ⊔ k))) → [ a ] has R -semiclosure U → p ⊆ U
+    p-minimal U ([a]-sub-U , U-closed) x px = Ux
+     where
+      Ua : U a
+      Ua = [a]-sub-U a refl
+      
+      Rax→Ux : R a x → U x
+      Rax→Ux Rax = U-closed a x Ua Rax
+      
+      Ux = Rax→Ux (px→Rax x px) 
+      
+    p-sub-p = ⊆-refl p
+
+  Equiv-comp : ∀ {i j} {A : Set i} (R : A → A → Set j) → Equivalence R → {x y z : A} → R x y → R y z → R x z
+  Equiv-comp {i} {j} {A} R eq {x} {y} {z} Rxy Ryz = transitive Rxy Ryz
+   where
+    open Relations.Equivalence eq
+
+  Equiv-id-weak : ∀ {i j} {A : Set i} (R : A → A → Set j) → (eq : Equivalence R) → (x : A) → R x x
+  Equiv-id-weak {i} {j} {A} R eq x = reflexive x
+   where
+    open Relations.Equivalence eq
+
+  Equiv-inv-weak : ∀ {i j} {A : Set i} (R : A → A → Set j) → Equivalence R → {x y : A} → R x y → R y x
+  Equiv-inv-weak {i} {j} {A} R eq {x} {y} Rxy = symmetric Rxy
+   where
+    open Relations.Equivalence eq
+
+    
+  -- with proof-irrelevance we can trivially get the actual laws
+  -- without proof-irrelevance maybe not
+  {-
+  Equiv-id : ∀ {i j} {A : Set i} (R : A → A → Set j) → (eq : Equivalence R) → (x : A) → ∃ e ∈ (R x x) , (((y : A) → (Rxy : R x y) → (Equiv-comp R eq e Rxy) ≡ Rxy) ∧ ((y : A) → (Ryx : R y x) → (Equiv-comp R eq Ryx e) ≡ Ryx))
+  Equiv-id {i} {j} {A} R eq x = (e , (e-idL , e-idR))
+   where
+    open BaseDefinitions.Relations.Equivalence eq
+    
+    e = reflexive x
+    e-idL : (y : A) → (Rxy : R x y) → (Equiv-comp R eq e Rxy) ≡ Rxy
+    e-idL y Rxy = refl
+    
+    e-idR : (y : A) → (Ryx : R y x) → (Equiv-comp R eq Ryx e) ≡ Ryx
+    e-idR y Ryx = refl
+  -}
+
+  -- continuous functions
+  -- https://www.cs.bham.ac.uk/~mhe/talks/escardo-ihp2014.pdf
+  -- basically just the same as "Groupoid"
+  record EquivGroupoid {i j} {A : Set i} (R : A → A → Set j) : Set (i ⊔ j) where
+   field
+    reflexivity : (x : A) → R x x
+    symmetry : {x y : A} → R x y → R y x
+    transitivity : {x y z : A} → R x y → R y z → R x z
+    identities : {x y : A} → (Rxy : R x y) → ((transitivity (reflexivity x) Rxy) ≡ Rxy) ∧ ((transitivity Rxy (reflexivity y)) ≡ Rxy)
+    inverses : {x y : A} → (Rxy : R x y) → ((transitivity Rxy (symmetry Rxy)) ≡ (reflexivity x)) ∧ ((transitivity (symmetry Rxy) Rxy) ≡ (reflexivity y))
+    associativity : {w x y z : A} → (Rwx : R w x) → (Rxy : R x y) → (Ryz : R y z) → ((transitivity Rwx (transitivity Rxy Ryz)) ≡ (transitivity (transitivity Rwx Rxy) Ryz))
+      
+  ≡-EquivGroupoid : ∀ {i} {A : Set i} → EquivGroupoid {i} {i} {A} _≡_
+  ≡-EquivGroupoid {i} {A} =
+   record{
+    reflexivity   = λ x → refl    ;
+    symmetry      = ≡-sym         ;
+    transitivity  = ≡-trans       ;
+    identities    = ≡-id          ;
+    inverses      = ≡-inv         ;
+    associativity = ≡-assoc
+   }
+    where
+     open Equality.Properties
+
+     reflexivity : (a : A) → a ≡ a
+     reflexivity a = refl
+
+     ≡-id : {x y : A} → (x=y : x ≡ y) → ((≡-trans (reflexivity x) x=y) ≡ x=y) ∧ ((≡-trans x=y (reflexivity y)) ≡ x=y)
+     ≡-id {x} {.x} refl = (refl , refl)
+
+     ≡-inv : {x y : A} → (x=y : x ≡ y) → ((≡-trans x=y (≡-sym x=y)) ≡ (reflexivity x)) ∧ ((≡-trans (≡-sym x=y) x=y) ≡ (reflexivity y))
+     ≡-inv {x} {.x} refl = (refl , refl)
+     
+     ≡-assoc : {w x y z : A} → (w=x : w ≡ x) → (x=y : x ≡ y) → (y=z : y ≡ z) → ((≡-trans w=x (≡-trans x=y y=z)) ≡ (≡-trans (≡-trans w=x x=y) y=z))
+     ≡-assoc {w} {.w} {.w} {.w} refl refl refl = refl
+
+  refl-unique : ∀ {i} {A : Set i} {x : A} → (p : x ≡ x) → p ≡ refl
+  refl-unique {i} {A} {x} refl = refl
+
+  refl-unique₂ : ∀ {i} {A : Set i} {x y : A} → (p q : x ≡ y) → p ≡ q
+  refl-unique₂ {i} {A} {x} {.x} refl refl = refl
+
+  
+
+  {-
+  BijectionGroupoid : ∀ {i} → EquivGroupoid {(lsuc i)} {i} {Set i} Functions.Predicates._hasBijectionWith_
+  BijectionGroupoid {i} =
+   record{
+    reflexivity   = Bij-refl       ;
+    symmetry      = Bij-symm       ;
+    transitivity  = Bij-trans      ;
+    identities    = id-bij         ;
+    inverses      = Bij-inv        ;
+    associativity = Bij-assoc
+   }
+    where
+     open Functions.Composition.Definition
+     open Functions.Predicates
+     open Functions.Bijections
+
+     identities = id-bij
+     Bij-assoc : {w x y z : Set i} → (Rwx : w hasBijectionWith x) → (Rxy : x hasBijectionWith y) → (Ryz : y hasBijectionWith z) → ((Bij-trans Rwx (Bij-trans Rxy Ryz)) ≡ (Bij-trans (Bij-trans Rwx Rxy) Ryz))
+     Bij-assoc
+      {w} {x} {y} {z}
+      (wx , (wx-inj , wx-surj))
+      (xy , (xy-inj , xy-surj))
+      (yz , (yz-inj , yz-surj))
+      = proof
+       where
+        proof
+   -}   
  module BooleanSets where
+  open BaseDefinitions.Product
   open BaseDefinitions.Equality.Definition
   open BaseDefinitions.BaseTypes.Bool
+  open Boolean.Operations
+  open Functions.Composition.Definition
+  open Functions.Special
   open Boolean.Operations
   open PropositionalSets using (Subset)
   subset : ∀ {i} (A : Set i) → Set i
@@ -2864,6 +4055,10 @@ module Sets where
   (X ∩ Y) x = (X x) and (Y x)
 
   {-
+  X∩Y⊆X : ∀ {i} {A : Set i} → (X Y : Subset A) → (X ∩ Y)
+  -}
+
+  {-
   -- can only do this for sets with decidable equality!
   _-_ : ∀ {i} {A : Set i} → (X : subset A) → A → subset A
   (X - a) x = (X x) and (not (x == a))
@@ -2877,6 +4072,64 @@ module Sets where
 
   emptysubset : ∀ {i} (A : Set i) → subset A
   emptysubset A x = false
+
+  lemma1 : Bool × Bool → (Bool → Bool)
+  lemma1 = λ {(a , b) → (λ b → if b then (first (a , b)) else (second (a , b)))}
+
+  lemma2 : (Bool → Bool) → Bool × Bool
+  lemma2 f = (f true , f false)
+
+  {-
+  lemma3-3 :
+   ∀ {i j} {A : Set i} {B : Set j} → 
+   _≡_ {i ⊔ j} {(A × B) → (A × B)} (λ {(a , b) → ((first (a , b)) , (second (a , b)))}) (λ {(a , b) → (a , b)})
+  lemma3-3 = refl
+  -}
+
+  {-
+  lemma3 : (lemma2 ∘ lemma1) ≡ id
+  lemma3 = proof
+   where
+    {-
+    lemma3-0 : lemma1 ≡ (λ p → (λ b → (if b then (first p) else (second p))))
+    lemma3-0 = refl
+    
+    
+    lemma3-1 : (lemma2 ∘ lemma1) ≡ (λ p → (lemma2 (λ b → if b then (first p) else (second p))))
+    lemma3-1 = refl
+    -}
+
+    {-
+    lemma3-2 :
+      (lemma2 ∘ lemma1) ≡ 
+      (λ {(a , b) → 
+       (
+        (first (a , b)) ,
+        (second (a , b))
+       )
+      })
+    lemma3-2 = refl
+    -}
+
+
+    {-
+    lemma3-3 : ∀ {i j} (A : Set i) (B : Set j) → (p : A × B) → p ≡ (first p , second p)
+    lemma3-3 {i} {j} A B (a , b) = refl
+
+    lemma3-4 : ∀ {i j} (A : Set i) (B : Set j) → (f g : A → B) → f ≡ g → (λ x → (f x)) ≡ (λ x → (g x))
+    lemma3-4 {i} {j} A B f .f refl = refl
+    -}
+    {-
+    lemma3-5 : (λ p → (first p) , (second p)) ≡ (λ {(a , b) → ((first (a , b)) , (second (a , b)))})
+    lemma3-5 = refl 
+    -}
+
+    proof = refl 
+    -}
+    -- Use trees for exponentials instead??
+    
+  -- ??
+  -- http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.90.2386 
 
  module FunctionalSets where
   open BaseDefinitions.Product
@@ -2928,7 +4181,7 @@ module Cardinality where
  -- correspondence to some natural number
  -- correspondence to Fin; bijection with Fin
  -- listability
- -- every subset of S has a least and greatest element
+ -- every non-empty subset of S has a least and greatest element
  -- countability vs. uncountability; cantor's theorem
  -- A is finite  iff  for all B subset of A, f:A->B is a bijection implies A=B.
  -- Kuratowski finiteness
@@ -2957,10 +4210,17 @@ module Cardinality where
 
     VII-finite. S is I-finite or not well-orderable.
 -}
+
+{-
+Definitions of Finiteness based on order properties
+http://h.web.umkc.edu/halle/PapersForEveryone/Dofboop.pdf
+-}
  
  ---------------------------------------------------------------------------------------
  module Finiteness where
   module I-finiteness where
+   open BaseDefinitions.Product
+   open Sets.PropositionalSets
    -- Every non-empty set of subsets of S has a ⊆-maximal element.
    -- Define:
     -- subsets of A
@@ -2970,14 +4230,29 @@ module Cardinality where
     -- set of subsets
     -- ⊆ relation between subsets
     -- ⊆-maximality property
-    
+    -- ⊆ defines a partial order
+   Finite : ∀ {i j k} → (A : Set i) → Set (i ⊔ ((lsuc j) ⊔ (lsuc k)))
+   Finite {i} {j} {k} A =
+     (P : (A → Set j) → Set k) →                                                       -- for every set of subsets of A, P
+     (∃ s ∈ (A → Set j) , (P s)) →                                                    -- P non-empty
+     (∃ M ∈ (A → Set j) , ((P M) ∧ ((M' : A → Set j) → (P M') → (M' ⊆ M))))        -- P contains ⊆-maximal element
+
+   
 
   module Ia-finiteness where
    open I-finiteness
+   -- For every partition of S into two sets, at least one of the two sets is I-finite.
+   
 
   module II-finiteness where
 
   module III-finiteness where
+   -- The power set P(S) is Dedekind finite.
+   -- how to properly define the powerset for this purpose?
+   -- A → Bool *should* behave like powerset?
+   -- With Bools you can basically case-match on the possible outputs
+   -- but no function extensionality!
+   -- use trees for power-set?
 
   module IV-finiteness where
    -- Dedekind infiniteness: the existence of a bijection between it and some proper subset of itself
@@ -2987,6 +4262,15 @@ module Cardinality where
  
 
   module V-finiteness where
+  -- ∣S∣ = 0 or 2⋅∣S∣ > ∣S|.
+  -- how to characterize 2·|S| and |S₁| > |S₂| ?
+  -- |A| ≤ |B| iff exists injection A → B ?
+  -- |A| ≤ |B| iff exists surjection B → A ?
+    -- no, because no surjection from inhabited sets to the empty set
+  -- |A| = |B| iff exists injection A → B ∧ injection B → A ?
+  -- |A| = |B| iff exists injection A → B ∧ surjection A → B ?
+    
+
 
   module VI-finiteness where
 
@@ -3070,12 +4354,11 @@ module Prolog where
  open BaseDefinitions.Equality.Definition
  open BaseDefinitions.Product
  open BaseDefinitions.BaseTypes.Bool
- open BaseDefinitions.BaseTypes.Bool.Operations
  open BaseDefinitions.BaseTypes.Nat renaming (Nat to ℕ)
  open BaseArithmetic.BooleanPredicates
  open BaseDefinitions.BaseTypes.List
  open Boolean.Operations renaming (_eq_ to Bool-eq)
- open Containers
+ open Containers.Maybe.Definition
  data Term : Set where
   const : ℕ → Term
   blank : ℕ → Term
@@ -4026,7 +5309,7 @@ https://en.wikipedia.org/wiki/Transition_system
   open BaseDefinitions.Product
   open BaseDefinitions.BaseTypes.Nat renaming (Nat to ℕ)
   open BaseDefinitions.BaseTypes.Fin
-  open BaseDefinitions.BaseTypes.Fin.Operations
+  open BaseArithmetic.FinOperations
   module DFA1 where
    record DFA : Set₁ where
     field
@@ -4057,7 +5340,7 @@ https://en.wikipedia.org/wiki/Transition_system
    -- semiautomata
 
    module DFAProperties where
-    open BaseArithmetic.Relations
+    open BaseArithmetic.BinaryPredicates
     open DFA1 renaming (DFA to DFA1)
     DFA→DFA1 : DFA → DFA1
     DFA→DFA1 dfa =
@@ -4174,6 +5457,32 @@ https://en.wikipedia.org/wiki/Transition_system
  Turing completeness
  Unsolvability of halting problem by Turing machines
  -}
+
+{-
+Resistor
+Semiconductor
+ n-type
+ p-type
+Transistor
+Diode
+DTL := Diode-Transistor Logic
+TTL := Transistor-Transistor Logic
+RTL := Resistor-Transistor Logic
+Bipolar junction transistor
+ NPN
+ PNP
+Field-effect transistor
+https://en.wikipedia.org/wiki/Reversible_computing
+XOR gate: non-reversible
+CNOT := controlled-NOT gate; reversible
+https://en.wikipedia.org/wiki/Toffoli_gate
+* any reversible gate can be implemented on a quantum computer
+https://en.wikipedia.org/wiki/McEliece_cryptosystem
+
+Belt-machine
+Mill architecture
+
+-}
 
 
 module FormalLanguages where
@@ -4377,5 +5686,525 @@ Coinductive types
 
 Inductive types as least fixed-points
 Coinductive types as greatest fixed-points
+https://cstheory.stackexchange.com/questions/10594/whats-the-difference-between-adts-gadts-and-inductive-types#comment29078_10596
+https://bartoszmilewski.com/2017/02/28/f-algebras/
+ 
 
 -}
+
+module Character where
+ open BaseDefinitions.Product
+ open BaseDefinitions.Equality.Definition
+ open BaseDefinitions.Bool
+ open Boolean.Operations
+ open Boolean.Conversions
+ open Boolean.Complex
+ open BaseDefinitions.Nat
+ open BaseArithmetic.Operations
+ open BaseDefinitions.Vector
+ open Containers.Vector.BooleanPredicates
+ open Containers.Maybe.Definition
+ open Containers.Maybe.BooleanPredicates
+ open Containers.Maybe.Complex
+
+ -- there is a primitive Char data-type but it's wrong; Chars are not a philosophically primitive data-type
+ Char : Set
+ Char = Vector Bool 8
+
+ CharEq : Char → Char → Bool
+ CharEq c d = VectorEq BoolEq c d
+
+ CharToNat : {n : Nat} → Vector Bool n →  Nat
+ CharToNat [] = 0
+ CharToNat {n} (b ∷ bs) = ((boolToNat b) * (2 ^ n)) + (CharToNat bs)
+
+ Char≤ : {n : Nat} → Vector Bool n → Vector Bool n → Bool
+ Char≤ [] [] = true
+ Char≤ (true ∷ v) (true ∷ w) = Char≤ v w
+ Char≤ (true ∷ v) (false ∷ w) = false
+ Char≤ (false ∷ v) (true ∷ w) = true
+ Char≤ (false ∷ v) (false ∷ w) = Char≤ v w
+
+ NatEq : Nat → Nat → Bool
+ NatEq 0 0 = true
+ NatEq (suc n) 0 = false
+ NatEq 0 (suc m) = false
+ NatEq (suc n) (suc m) = NatEq n m
+
+ Nat≤ : Nat → Nat → Bool
+ Nat≤ 0 0 = true
+ Nat≤ 0 (suc n) = true
+ Nat≤ (suc n) 0 = false
+ Nat≤ (suc n) (suc m) = Nat≤ n m
+
+ zeroVec : (n : Nat) → Vector Bool n
+ zeroVec 0 = []
+ zeroVec (suc n) = false ∷ (zeroVec n)
+
+ incWithCarry : {n : Nat} → Vector Bool n → (Vector Bool n) × Bool
+ incWithCarry [] = [] , true
+ incWithCarry (b ∷ bs) = (r ∷ rs) , c
+  where
+   bs' = incWithCarry bs
+   rs = first bs'
+   t = halfAdd b (second bs')
+   r = first t
+   c = second t
+ 
+ inc : {n : Nat} → Vector Bool n → Vector Bool n
+ inc v = first (incWithCarry v)
+
+ NatToChar : Nat → Maybe Char
+ NatToChar n = NatToCharHelper n 256 (zeroVec 8)
+  where
+   NatToCharHelper : Nat → Nat → Char → Maybe Char
+   NatToCharHelper 0       n c = Just c
+   NatToCharHelper (suc n) 0 c = Nothing
+   NatToCharHelper (suc n) (suc m) c = NatToCharHelper n m (inc c)
+
+
+ QMARK  = extractMaybe (NatToChar 63) refl
+ SPACE  = extractMaybe (NatToChar 32) refl
+ LPAREN = extractMaybe (NatToChar 40) refl
+ RPAREN = extractMaybe (NatToChar 41) refl
+
+ {-
+ Punctuation : Nat × Nat
+ Punctuation = 
+ -}
+
+ Numeric : Nat × Nat
+ Numeric = 48 , 57
+
+ AlphaUpper : Nat × Nat
+ AlphaUpper = 65 , 90
+
+ AlphaLower : Nat × Nat
+ AlphaLower = 97 , 122
+
+ mkRange : Nat × Nat → Maybe (Vector Bool 8 → Bool)
+ mkRange (m , n) =
+  if (Nat≤ m n) then
+   (dite (checkMaybe (NatToChar m))
+   (λ p → (dite (checkMaybe (NatToChar n))
+   (λ q → Just (λ c → (Char≤ (extractMaybe (NatToChar m) p) c) and (Char≤ c (extractMaybe (NatToChar n) q))))
+   (λ q → Nothing)))
+   (λ p → Nothing))
+  else Nothing
+
+ isAlphaUpper = extractMaybe (mkRange AlphaUpper) refl
+ isAlphaLower = extractMaybe (mkRange AlphaLower) refl
+ isAlpha = λ x → (isAlphaUpper x) or (isAlphaLower x)
+ isNumeric = extractMaybe (mkRange Numeric) refl
+ isAlphaNumeric = λ x → (isAlpha x) or (isNumeric x)
+
+
+module String where
+ open BaseDefinitions.Bool
+ open BaseDefinitions.List
+ open Containers.List.BooleanPredicates
+ open Character
+ 
+ String : Set
+ String = List Char
+
+ StringEq : String → String → Bool
+ StringEq s t = ListEq CharEq s t
+
+
+module ContextFreeGrammar where
+ open BaseDefinitions.Product
+ open BaseDefinitions.Sum
+ open BaseDefinitions.Bool
+ open Boolean.Operations
+ open BaseDefinitions.List
+ open Containers.List.Operations
+ open BaseDefinitions.Unit
+ open Containers.Maybe.Definition
+ open Character
+ data NonTerminal : Set where
+  START : NonTerminal
+  TOKEN : NonTerminal
+  TERM  : NonTerminal
+  WS    : NonTerminal
+
+ NTEq : NonTerminal → NonTerminal → Bool
+ NTEq START START = true
+ NTEq TOKEN TOKEN = true
+ NTEq TERM  TERM  = true
+ NTEq WS    WS    = true
+ NTEq x     y     = false
+
+ Grammar : Set
+ Grammar = List (NonTerminal × (List (List (Char ∨ NonTerminal))))
+
+ {-
+ myGrammar : Grammar
+ myGrammar = 
+  (START , (((inr WS) ∷ []) ∷ ((inr TOKEN) ∷ []) ∷ ((inr TERM)  ∷ (inr START) ∷ []) ∷ [])) ∷
+  (TOKEN , (((inr CHAR) ∷ []) ∷ ((inr CHAR)  ∷ (inr TOKEN) ∷ []) ∷ [])) ∷
+  (WS    , (((inl SPACE) ∷ []) ∷ ((inl SPACE) ∷ (inr WS) ∷ []) ∷ [])) ∷
+  (TERM  , (((inl LPAREN) ∷ (inr START) ∷ (inl RPAREN) ∷ []) ∷ [])) ∷ 
+  []
+ -}
+ RHS : Set
+ RHS = List ((Char ∨ ⊤) × (List (Char ∨ NonTerminal)))
+
+ Grammar₂ : Set
+ Grammar₂ = List (NonTerminal × RHS)
+
+ -- Greibach Normal Form
+ Grammar₃ : Set
+ Grammar₃ = RHS × Grammar₂
+
+ prepGrammar₂ : Grammar₂ → Maybe Grammar₃
+ prepGrammar₂ [] = Nothing
+ prepGrammar₂ (r ∷ rs) = Just ((second r) , (r ∷ rs))
+
+ LRecRHS : Set
+ LRecRHS = List (List (Char ∨ NonTerminal))
+
+ matchChar : Char → RHS → LRecRHS
+ matchChar c [] = []
+ matchChar c (((inl d) , rhs) ∷ rest) = if (CharEq c d) then (rhs ∷ (matchChar c rest)) else (matchChar c rest) 
+ matchChar c (((inr unit), rhs) ∷ rest) = (rhs ∷ (matchChar c rest))
+
+ lookUp : NonTerminal → Grammar₂ → RHS
+ lookUp NT [] = []
+ lookUp NT ((NT₂ , rhs) ∷ rest) = (if (NTEq NT NT₂) then rhs else []) ++ (lookUp NT rest)
+
+ expand : LRecRHS → Grammar₂ → RHS
+ expand [] g = []
+ expand ([] ∷ restOptions) g = expand restOptions g
+ expand (((inl c) ∷ restOption) ∷ restOptions) g = ((inl c) , restOption) ∷ (expand restOptions g)
+ expand (((inr NT) ∷ restOption) ∷ restOptions) g = (map (λ q → (first q) , ((second q) ++ restOption)) (lookUp NT g)) ++ (expand restOptions g)
+
+ derivative : Char → Grammar₃ → Grammar₃
+ derivative c ([] , []) = ([] , [])
+ derivative c ([] , g) = ([] , g)
+ derivative c (q  , []) = ([] , [])
+ derivative c ((q ∷ qs)  , g) = (expand (matchChar c (q ∷ qs)) g) , g 
+
+ {-
+ START = " " WS START | ALPHANUM TOKEN | "(" TERM
+ TOKEN = ALPHANUM  | ALPHANUM TOKEN
+ WS    = " " | " " WS
+ TERM  = " " WS START ")" | ALPHANUM TOKEN ")" | "(" TERM ")"
+ -}
+
+
+ {-
+ derivative : Grammar₂ → Char → Grammar₂
+ derivative
+ dSTART/dSPACE =  START -> START 
+                ~ START -> " " START | c START | "(" START
+ dTERM/dSPACE = TERM -> START ")"
+              ~ TERM -> " " START ")" | 
+ 
+ -}
+ {-
+ START -> WS START | TOKEN | TOKEN WS | TOKEN WS START | TERM | TERM WS | TERM START
+ TOKEN -> CHAR | CHAR TOKEN
+ WS    -> " "  | " " WS
+ TERM  -> "(" START ")" 
+ -}
+ 
+
+ {-
+ myGrammar₂ : Grammar₂
+ myGrammar₂ =
+     (START , (
+               ∷ ((inl SPACE ) , ((inr START) ∷ []))
+               ∷ ((inl LPAREN) , ((inr TERM)  ∷ []))
+               ∷ ((inr unit  ) , [])
+               ∷ ((inr unit  ) , ((inr TOKEN) ∷ []))
+               ∷ ((inr unit  ) , ((inr TOKEN) ∷ (inr WS) ∷ (inr START) ∷ []))
+               ∷ ((inl LPAREN) , ((inr TERM)  ∷ (inr START) ∷ []))
+               ∷ []
+               )
+     )
+                  
+  ∷ (TOKEN , (   ((inr unit  ) , [])                 
+               ∷ ((inr unit  ) , ((inr TOKEN) ∷ []))
+               ∷ []
+               )
+     )
+
+  ∷ (WS ,    (   ((inl SPACE ) , [])
+               ∷ ((inl SPACE ) , ((inr WS) ∷ []))
+               ∷ []
+              )
+     )
+               
+  ∷ (TERM  , (
+                  ((inl SPACE  ) , ((inr WS   ) ∷ (inl RPAREN) ∷ []))
+               ∷ ((inr unit   ) , ((inr TOKEN) ∷ (inl RPAREN) ∷ []))
+               ∷ ((inl LPAREN ) , ((inr TERM ) ∷ (inl RPAREN) ∷ []))
+               ∷ ((inl SPACE  ) , ((inr WS   ) ∷ (inr START ) ∷ (inl RPAREN) ∷ []))
+               ∷ ((inr unit   ) , ((inr TOKEN) ∷ (inr START ) ∷ (inl RPAREN) ∷ [])) 
+               ∷ ((inl LPAREN ) , ((inr TERM ) ∷ (inr START ) ∷ (inl RPAREN) ∷ []))
+               ∷ []
+              )
+     )
+  ∷ []
+  -}
+ 
+ 
+  
+ -- reduction from CFG to non-left-recursive CFG
+ -- you can trivially take the derivative of any context-free grammar that's not left-recursive
+ -- 
+ anyChar : List Char → Maybe Char
+ anyChar [] = Nothing
+ anyChar (c ∷ cs) = Just c
+
+ parseToken : List Char → List Char
+ parseToken [] = []
+ parseToken (c ∷ cs) = if (isAlphaNumeric c) then (c ∷ (parseToken cs)) else []
+
+ parseWS : List Char → List Char
+ parseWS [] = []
+ parseWS (c ∷ cs) = if (CharEq c SPACE) then (c ∷ (parseWS cs)) else []
+
+ parseToken₂ : List Char → (List Char) × (List Char)
+ parseToken₂ [] = [] , []
+ parseToken₂ (c ∷ cs) = if (isAlphaNumeric c) then ((c ∷ (first (parseToken₂ cs))) , (second (parseToken₂ cs))) else ([] , cs)
+
+ parseWS₂ : List Char → (List Char) × (List Char)
+ parseWS₂ [] = [] , []
+ parseWS₂ (c ∷ cs) = if (CharEq c SPACE) then ((c ∷ (first (parseWS₂ cs))) , (second (parseWS₂ cs))) else ([] , cs)
+
+ {-
+ -- derivative of a parser wrt a character is a new parser
+ -- derivative of 
+ -}
+
+
+
+module ModalRewriter where
+ open BaseDefinitions.Product
+ open BaseDefinitions.Sum
+ open BaseDefinitions.Bool
+ open BaseDefinitions.Equality.Definition
+ open Equality.Properties
+ open BaseDefinitions.List
+ open Containers.List.Operations
+ open BaseDefinitions.Nat
+ open BaseDefinitions.Vector
+ open BaseDefinitions.Unit
+ open Functions.Composition.Definition
+ open Boolean.Operations
+ open Boolean.Complex
+ open Boolean.Conversions
+ open BaseDefinitions.BaseTypes.Fin
+ open BaseArithmetic
+ open BaseArithmetic.Operations
+ open BaseArithmetic.Results
+ open Containers.Maybe.Definition
+ open Containers.Maybe.BooleanPredicates
+ open Containers.Maybe.Complex
+ open Containers.List.BooleanPredicates
+ open Containers.Vector.BooleanPredicates
+ open Containers.BinTree
+ open Character
+ open String
+
+ -- rule = pair(input-pattern , output-pattern)
+ -- ruleset = list of rules
+ -- pick applicable rule
+ -- queue semantics
+ -- list of tokens
+ -- parse string
+ --
+
+ data Token : Set where
+  const : String → Token
+  var : Nat → Token
+
+ TokenEq : Token → Token → Bool
+ TokenEq (const c) (const d) = StringEq c d
+ TokenEq (const c) x         = false
+ TokenEq (var   v) (var   w) = NatEq v w
+ TokenEq (var   v) x         = false
+  
+ data AST : Set where
+  token : Token → AST
+  term : List AST → AST
+
+ TermEqHelper : List AST → List AST → Bool
+ TermEqHelper [] [] = true
+ TermEqHelper (a ∷ as) [] = false
+ TermEqHelper []        (b ∷ bs) = false
+ TermEqHelper ((token t) ∷ rest) ((token u) ∷ rest2) = TokenEq t u
+ TermEqHelper ((token t) ∷ rest) (x ∷ rest2)         = false
+ TermEqHelper ((term as) ∷ rest) ((term bs) ∷ rest2) = (TermEqHelper as bs) and (TermEqHelper rest rest2)
+ TermEqHelper ((term as) ∷ rest) (x ∷ rest2)         = false
+
+ TermEq : AST → AST → Bool
+ TermEq x y = TermEqHelper [ x ] [ y ]
+
+ data AST₂ : Nat → Set where
+  token : Token → AST₂ 0
+  term : {n : Nat} → List (AST₂ n) → AST₂ (suc n)
+
+ data AST₃ : Nat → Set where
+  token : {n : Nat} → Token → AST₃ n
+  term : {n : Nat} → List (AST₃ n) → AST₃ (suc n)
+
+ addToken' : {n : Nat} → List Char → List AST → List AST
+ addToken' [] ast = ast
+ addToken' t  ast = ast ++ [ token (const t) ]
+
+ addToken : {n : Nat} → List Char → Vector (List AST) (suc n) → Vector (List AST) (suc n)
+ addToken [] ast = ast
+ addToken t  (ast ∷ asts) = (ast ++ [ token (const t) ]) ∷ asts
+
+ merge : { n : Nat} → Vector (List AST) (suc (suc n)) → Vector (List AST) (suc n)
+ merge {n} (ast₁ ∷ ast₂ ∷ asts) = (ast₂ ++ [ term ast₁ ]) ∷ asts
+
+ VecFirst : {A : Set} {n : Nat} → Vector A (suc n) → A
+ VecFirst (a ∷ as) = a
+
+ getTerm : Vector (List AST) 1 → AST
+ getTerm ast = term (VecFirst ast)
+
+ parseState : Nat → Set
+ parseState n = List Char × Vector (List AST) (suc n)
+
+ emptyState : parseState 0
+ emptyState = ([] , ([] ∷ []))
+
+ doLPAREN : {n : Nat} → parseState n → Maybe (parseState (suc n))
+ doLPAREN (t , ast) = Just ([] , ([] ∷ (addToken t ast)))
+
+ doRPAREN2 : {n : Nat} → parseState (suc n) → parseState n
+ doRPAREN2 {n} (t , ast) = [] , (merge (addToken t ast))
+
+ doRPAREN : {n : Nat} → parseState n → Maybe (parseState (n - 1))
+ doRPAREN {0}     s     = Nothing
+ doRPAREN {suc n} s     = coerce (Just (doRPAREN-sub s)) (cong (λ q → Maybe (parseState q)) (n=n-0 n))
+  where
+   doRPAREN-sub : {m : Nat} → parseState (suc m) → parseState m
+   doRPAREN-sub (t , ast) = [] , (merge (addToken t ast))
+
+ doSPACE : {n : Nat} → parseState n → Maybe (parseState n)
+ doSPACE (t , ast) = Just ([] , (addToken t ast))
+
+ doCHAR : {n : Nat} → Char → parseState n → Maybe (parseState n)
+ doCHAR c (t , ast) = Just ((t ++ [ c ]) , ast)
+ 
+
+
+
+ -- not the best parser
+ -- put them in in reverse order and then just reverse once
+ parse : {n : Nat} → List Char → parseState n → Maybe AST
+ parse {0}       []       ([] , ([] ∷ [])) = Nothing
+ parse {0}       []       (t , ast)         = Just (getTerm (addToken t ast))
+ parse {(suc n)} []       state             = Nothing
+ parse {n}       (c ∷ x) state             =
+  dite
+  (checkMaybe (π₂ nextState))
+  (λ p → (parse x (extractMaybe (π₂ nextState) p)))
+  (λ p → Nothing)
+   where
+     nextState : ∃ m ∈ Nat , (Maybe (parseState m))
+     nextState =
+      if         (CharEq c LPAREN) then ((1 + n)    , (doLPAREN state))
+       else (if  (CharEq c RPAREN) then ((n - 1)    , (doRPAREN state))
+        else (if (CharEq c SPACE ) then (n          , (doSPACE  state))
+         else                           (n          , (doCHAR   c state))
+      ))
+
+ {-
+ parseInput : List Char → Maybe AST
+ parseInput s = parse s emptyState
+ -}
+
+ {-
+ -- disjoint-set roots either: point to some term, or point back to themselves
+ find-check : {A : Set} {n : Nat} → Vector Bool n → (A ∨ (Vector Bool n)) → Bool
+ find-check v (inl a) = true
+ find-check v (inr w) = VectorEq BoolEq v w
+
+ find-helper2 : {A : Set} {n : Nat} → Vector Bool n → (A ∨ (Vector Bool n)) → 
+
+ find-helper : {A : Set} {n : Nat} → BinTree (A ∨ (Vector Bool n)) n → Vector Bool n → Nat → Maybe (Vector Bool n)
+ find-helper s v 0 = Nothing
+ find-helper s v (suc n) = if (find-check v (retrieve s v)) then (Just v) else (find-helper s (retrieve s v) n)
+
+ find : {A : Set} {n : Nat} → BinTree (A ∨ (Vector Bool n)) n → Vector Bool n → Vector Bool n
+ find {A} {n} s v = find-helper s v (2 ^ n)
+
+ union : {m n : Nat} → BinTree ((List (Ast₃ m)) ∨ (Vector Bool n)) n → (v w : Vector Bool n) → BinTree ((List (AST₃ m)) ∨ (Vector Bool n)) n
+ union s v w = store (store s ((retrieve s v) ++ (retrieve s w))) w (inr v)
+
+ bind : {m n : Nat} → Vector Bool n → (AST₃ m) → BinTree (List (AST₃ m)) n → BinTree (List (AST₃ m)) n
+ bind v (token (var w)) s = union s v w
+ bind v x s = store s ((retrieve s v) ++ [ x ]) v
+
+ -- when a var binds with another var you wanna union their trees and have one point to the other for future references
+ -- 
+ match-layer :
+  {m n : Nat} →
+  List (AST₃ m) →
+  List (AST₃ m) →
+  BinTree ((List (AST₃ m)) ∨ (Vector Bool n)) n →
+  Maybe (BinTree ((List (AST₃ m)) ∨ (Vector Bool n)) n)
+ match-layer {m} {n} []                        []                         s = Just s
+ match-layer {m} {n} ((token (var v)) ∷ rest) (x ∷ rest2)               s = match-layer rest rest2 (bind v x s)
+ match-layer {m} {n} (x ∷ rest)               ((token (var v)) ∷ rest2) s = match-layer rest rest2 (bind v x s)
+ match-layer {(suc m)} {n} ((term as) ∷ rest) ((term bs) ∷ rest2)       s = match-layer rest rest2 (match-layer as bs s)
+ match-layer {m} {n} ((token c) ∷ rest)       ((token d) ∷ rest2)       s = if (StringEq c d) then (Just s) else Nothing
+ match-layer {m} {n} x                         y                          s = Nothing
+ -}
+ 
+
+ {-
+ bind : {n : Nat} → Nat → AST → BinTree AST n → Maybe AST
+ bind {n} m ast s = 
+
+ -- recurse on the depth of the ASTs
+ -- recurse on the number of variables
+ match-helper : {n : Nat} → List AST → List AST → BinTree AST n → Maybe (BinTree AST n)
+ match-helper []                           []                           s  = Just s
+ match-helper ((token (var v)) ∷ rest)    (x ∷ rest2)                 s  = match-helper rest rest2 (bind v x s)
+ match-helper (x ∷ rest)                  ((token (var v)) ∷ rest2)   s  = match-helper rest rest2 (bind v x s)
+ match-helper ((term as)
+ ∷ rest1)         ((term bs) ∷ rest2)         s  = match-helper rest1 rest2 (match-helper as bs s)
+ match-helper ((token (const c)) ∷ rest1) ((token (const d)) ∷ rest2) s  = if (StringEq c d) then (Just s) else Nothing
+ match-helper x                            y                            s  = Nothing
+ -}
+
+
+ -- serialize like unlambda; treat @ as special constant
+ -- first check all constants
+  -- loop over 
+ -- then do all constant-var bindings
+ 
+ 
+ -- then do all var ` bindings
+ 
+ {-
+ match : AST → AST → Maybe Substitution
+ match ast₁ ast₂ = match-helper ast₁ ast₂ id
+ -}
+ {-
+ -- https://en.wikipedia.org/wiki/Queue_(abstract_data_type)
+ data QueueOp : Set where
+  enqueue : QueueOp
+  dequeue : QueueOp
+ -}
+ enqueue : {A : Set} → A → List A → List A
+ enqueue a l = l ++ [ a ]
+
+ dequeue : {A : Set} → List A → (List A) × (Maybe A)
+ dequeue [] = ([] , Nothing)
+ dequeue (a ∷ as) = (as , (Just a))
+
+
+-- https://www.reddit.com/r/haskell/comments/cczju/coq_verification_of_some_of_okasakis_purely/
+
+-- Lightweight Semiformal Time Complexity Analysis for Purely Functional Data Structures
+-- Nils Anders Danielsson
+-- http://www.cse.chalmers.se/~nad//publications/danielsson-popl2008.html
