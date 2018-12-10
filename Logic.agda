@@ -277,6 +277,9 @@ module BaseResults where
    proof-right : (x : A) → ¬ (P x)
    proof-right x = ω (¬A x)
 
+ ∨-map : ∀ {i j k l} {A : Set i} {A' : Set j} {B : Set k} {B' : Set l} → (A → A') → (B → B') → A ∨ B → A' ∨ B'
+ ∨-map f g (inl a) = inl (f a)
+ ∨-map f g (inr b) = inr (g b)
 
 
 module Relations where
@@ -302,10 +305,16 @@ module Relations where
     module Transitivity where
      Transitive : ∀ {i j} → {A : Set i} → Rel₂ {i} {j} A → Set (i ⊔ j)
      Transitive {i} {j} {A} R = {x y z : A} → R x y → R y z → R x z
-     
+
+    module Totality where
+     open BaseDefinitions.Sum
+     Total : ∀ {i j} → {A : Set i} → Rel₂ {i} {j} A → Set (i ⊔ j)
+     Total {i} {j} {A} R = (x y : A) → (R x y) ∨ (R y x)
+
     open Reflexivity public
     open Symmetry public
     open Transitivity public
+    open Totality
     
     record Equivalence {i} {j} {A : Set i} (R : A → A → Set j) : Set (i ⊔ j) where
      field
@@ -322,15 +331,29 @@ module Relations where
     module Antisymmetry where
      Antisymmetric : ∀ { i j k} → {A : Set i} → (_~_ : A → A → Set k) → Equivalence _~_ → Rel₂ {i} {j} A → Set ((i ⊔ j) ⊔ k)
      Antisymmetric {i} {j} {k} {A} _~_ ~-equiv R = {x y : A} → R x y → R y x → x ~ y
+    module Asymmetry where
+     open BaseDefinitions.Void     
+     Asymmetric : ∀ {i j} {A : Set i} (R : A → A → Set j) → Set (i ⊔ j)
+     Asymmetric {i} {j} {A} R = {x y : A} → R x y → R y x → ⊥
+
+    module Irreflexivity where
+     open BaseDefinitions.Negation.Definition
+     Irreflexive : ∀ {i j} {A : Set i} (R : A → A → Set j) → Set (i ⊔ j)
+     Irreflexive {i} {j} {A} R = {x : A} → ¬ (R x x)
    open Properties public
   open BinaryRelations public
 
 module Equality where
   module Properties where
+   open BaseDefinitions.Void
+   open BaseDefinitions.Unit
    open BaseDefinitions.Equality.Definition
    open Relations
    [A≡B]→[A→B] : ∀ {i} {A B : Set i} → A ≡ B → A → B
    [A≡B]→[A→B] refl a = a
+
+   ⊤≠⊥ : ⊤ ≠ ⊥
+   ⊤≠⊥ ⊤=⊥ = [A≡B]→[A→B] ⊤=⊥ unit
 
    ≡-sym : ∀ {i} {A : Set i} → Symmetric (_≡_ {i} {A})
    ≡-sym refl = refl
@@ -344,8 +367,8 @@ module Equality where
    transport : ∀ {i j} {A : Set i} → (P : A → Set j) → {x y : A} → x ≡ y → P x  → P y
    transport P refl Px = Px
 
-   coerce : {A B : Set} → A → A ≡ B → B
-   coerce {A} {.A} a refl = a
+   coerce : ∀ {i} {A B : Set i} → A → A ≡ B → B
+   coerce {i} {A} {.A} a refl = a
 
    ≡-equiv : ∀ {i} {A : Set i} → Equivalence {i} {i} {A} _≡_
    ≡-equiv =
@@ -441,6 +464,12 @@ module Boolean where
  -- functional completeness
  -- reversibility
 
+ module Predicates where
+  open BaseDefinitions.Void
+  open BaseDefinitions.Unit
+  isTrue : Bool → Set
+  isTrue true = ⊤
+  isTrue false = ⊥
 
 
 module Containers where
@@ -488,6 +517,9 @@ module Containers where
  module List where
    open BaseDefinitions.List
    module Operations where
+    open BaseDefinitions.Nat renaming (Nat to ℕ)
+    open BaseDefinitions.Fin
+    
     foldr : ∀ {i j} {A : Set i} {B : Set j} → (A → B → B) → B → List A → B
     foldr f b [] = b
     foldr f b (a ∷ as) = f a (foldr f b as)
@@ -496,9 +528,17 @@ module Containers where
     map f [] = []
     map f (a ∷ as) = (f a) ∷ (map f as)
 
-    [_] : {A : Set} → A  → List A
+    [_] : ∀ {i} {A : Set i} → A  → List A
     [ x ] = x ∷ []
 
+    length : ∀ {i} {A : Set i} → List A → ℕ
+    length [] = 0
+    length (a ∷ as) = suc (length as)
+
+    _<_> : ∀ {i} {A : Set i} → (l : List A) → Fin (length l) → A
+    [] < () > 
+    (a ∷ as) < zero > = a
+    (a ∷ as) < (suc n) > = as < n >
 
     _++_ : ∀ {i} {A : Set i} → (x y : List A) → List A
     [] ++ ys = ys
@@ -532,9 +572,18 @@ module Containers where
   module BooleanPredicates where
    open BaseDefinitions.Bool
    open Boolean.Operations
+   open BaseDefinitions.Fin
    VectorEq : {A : Set} {n : Nat} → (eq : A → A → Bool) → (x y : Vector A n) → Bool 
    VectorEq eq [] [] = true
    VectorEq eq (a₁ ∷ as₁) (a₂ ∷ as₂) = if (eq a₁ a₂) then ((VectorEq eq) as₁ as₂) else false
+
+   [_] : ∀ {i} {A : Set i} → A → Vector A 1
+   [ a ] = a ∷ []
+
+   _<_> : ∀ {i} {A : Set i} {n : Nat} → Vector A n → Fin n → A
+   [] < () >
+   (a ∷ as) < zero > = a
+   (a ∷ as) < suc n > = as < n >   
 
  module BinTree where
   open BaseDefinitions.Bool
@@ -812,6 +861,25 @@ module Functions where
    relativized to some equivalence relation?
 
   -}
+
+   Rinvₑ-lemma : ∀ {i j} {A : Set i} {B : Set j} → {f : A → B} → {g : B → A} → f isRInverseOfₑ g → g isLInverseOfₑ f
+   Rinvₑ-lemma f-rinv a = f-rinv a
+
+   Linvₑ-lemma : ∀ {i j} {A : Set i} {B : Set j} → {f : A → B} → {g : B → A} → f isLInverseOfₑ g → g isRInverseOfₑ f
+   Linvₑ-lemma f-linv b = f-linv b 
+
+   Rinvᵢ-lemma : ∀ {i j} {A : Set i} {B : Set j} → {f : A → B} → {g : B → A} → f isRInverseOfᵢ g → g isLInverseOfᵢ f
+   Rinvᵢ-lemma f-rinv = f-rinv
+
+   Linvᵢ-lemma : ∀ {i j} {A : Set i} {B : Set j} → {f : A → B} → {g : B → A} → f isLInverseOfᵢ g → g isRInverseOfᵢ f
+   Linvᵢ-lemma f-linv = f-linv
+
+    
+   invₑ-sym : ∀ {i j} {A : Set i} {B : Set j} → {f : A → B} → {g : B → A} → f isInverseOfₑ g → g isInverseOfₑ f
+   invₑ-sym {f = f} {g = g} (l , r) = (Rinvₑ-lemma {f = f} {g = g} r) , (Linvₑ-lemma {f = f} {g = g} l)
+
+   invᵢ-sym : ∀ {i j} {A : Set i} {B : Set j} → {f : A → B} → {g : B → A} → f isInverseOfᵢ g → g isInverseOfᵢ f
+   invᵢ-sym {f = f} {g = g} (l , r) = (Rinvᵢ-lemma {f = f} {g = g} r) , (Linvᵢ-lemma {f = f} {g = g} l)
 
 
   open FunctionInverses
@@ -1150,7 +1218,77 @@ module Functions where
     proof1 = refl
     -}
     proof2
-  -}  
+  -}
+
+module LogicFunctionProperties where
+ open BaseDefinitions.Product
+ open BaseDefinitions.Equality.Definition
+ open Equality.Properties
+ open BaseDefinitions.Sum
+ open Functions.Predicates
+ 
+ mkPair : {A B : Set} → A → B → A ∧ B
+ mkPair a b = a , b
+
+ mkExists : {A : Set} {B : A → Set} → (a : A) → B a → ∃ x ∈ A , (B x)
+ mkExists a b = a , b
+
+ ∧-≡-lemma : {A B : Set} → {a a' : A} → {b b' : B} → a ≡ a' → b ≡ b' → (mkPair a b) ≡ (mkPair a' b')
+ ∧-≡-lemma refl refl = refl
+
+ ∧-bijection-lemma : {A B A' B' : Set} → (A hasBijectionWith A') → (B hasBijectionWith B') → (A ∧ B) hasBijectionWith (A' ∧ B')
+ ∧-bijection-lemma {A} {B} {A'} {B'} (f , (f-inj , f-surj)) (g , (g-inj , g-surj)) = (h , (h-inj , h-surj))
+  where
+   h : (A ∧ B) → (A' ∧ B')
+   h (a , b) = (f a) , (g b)
+
+   h-inj : h isInjection
+   h-inj {(a₁ , b₁)} {(a₂ , b₂)} p = ∧-≡-lemma (f-inj (cong first p)) (g-inj (cong second p))
+
+      
+   h-surj : h isSurjection
+   h-surj (a' , b') = ((π₁ (f-surj a')) , (π₁ (g-surj b'))) , (∧-≡-lemma (π₂ (f-surj a')) (π₂ (g-surj b')))
+
+
+ injLeft : ∀ {i j} {A : Set i} {B : Set j} → A → A ∨ B
+ injLeft {i} {j} {A} {B} a = inl a
+
+ injRight : ∀ {i j} {A : Set i} {B : Set j} → B → A ∨ B
+ injRight {i} {j} {A} {B} b = inr b
+ 
+
+    
+ inl-injHelper : {A B : Set} {p q : A ∨ B} → p ≡ q → (s : ∃ a ∈ A , (p ≡ (inl a))) → (t : ∃ a' ∈ A , (q ≡ (inl a'))) → (π₁ s)  ≡ (π₁ t)
+ inl-injHelper {A} {B} {p} {.p} refl (a , refl) (a' , refl) = refl
+
+ inr-injHelper : {A B : Set} {p q : A ∨ B} → p ≡ q → (s : ∃ b ∈ B , (p ≡ (inr b))) → (t : ∃ b' ∈ B , (q ≡ (inr b'))) → (π₁ s) ≡ (π₁ t)
+ inr-injHelper {A} {B} {p} {.p} refl (b , refl) (b' , refl) = refl
+
+    
+ inl-inj : {A B : Set} → (injLeft {lzero} {lzero} {A} {B}) isInjective
+ inl-inj {A} {B} {a} {a'} p = inl-injHelper p (a , refl) (a' , refl)
+
+ inr-inj : {A B : Set} → (injRight {lzero} {lzero} {A} {B}) isInjective
+ inr-inj {A} {B} {b} {b'} p = inr-injHelper p (b , refl) (b' , refl)
+ 
+    
+ ∨-bijection-lemma : {A B A' B' : Set} → (A hasBijectionWith A') → (B hasBijectionWith B') → (A ∨ B) hasBijectionWith (A' ∨ B')
+ ∨-bijection-lemma {A} {B} {A'} {B'} (f , (f-inj , f-surj)) (g , (g-inj , g-surj)) = (h , (h-inj , h-surj))
+  where
+   h : (A ∨ B) → (A' ∨ B')
+   h (inl a) = inl (f a)
+   h (inr b) = inr (g b)
+
+   h-inj : h isInjection
+   h-inj {inl a₁} {inl a₂} p = cong inl (f-inj (inl-inj p))
+   h-inj {inl a₁} {inr b₂} ()
+   h-inj {inr b₁} {inl a₂} ()
+   h-inj {inr b₁} {inr b₂} p = cong inr (g-inj (inr-inj p))
+      
+   h-surj : h isSurjection
+   h-surj (inl a') = inl (π₁ (f-surj a')) , cong inl (π₂ (f-surj a'))
+   h-surj (inr b') = inr (π₁ (g-surj b')) , cong inr (π₂ (g-surj b'))
+   
 module BaseArithmetic where
  open BaseDefinitions.BaseTypes.Nat public renaming (Nat to ℕ)
  module Operations where
@@ -1177,7 +1315,14 @@ module BaseArithmetic where
   0 - x = 0
   (suc x) - 0 = (suc x)
   (suc x) - (suc y) = x - y
-  
+
+  diff : ℕ → ℕ → ℕ
+  diff 0       0       = 0
+  diff 0       (suc y) = (suc y)
+  diff (suc x) 0       = (suc x)
+  diff (suc x) (suc y) = diff x y
+
+  -- can this be made cleaner?
   div-helper : ℕ → ℕ → ℕ × ℕ → ℕ × ℕ
   div-helper 0       n (d , zero)          = ((suc d) , 0)
   div-helper 0       n (d , (suc r))       = (d , (n - r))
@@ -1194,6 +1339,12 @@ module BaseArithmetic where
  
   _mod_ : ℕ → ℕ → Maybe ℕ
   x mod y = MaybeMap second (x ÷ y)
+
+  {-
+  log-base_of_ : ℕ → ℕ → Maybe (ℕ × ℕ)
+  log-base 0 of x = Nothing
+  log-base (suc n) of x = 
+  -}
 
  module FinOperations where
   open BaseDefinitions.Product
@@ -1224,7 +1375,7 @@ module BaseArithmetic where
   0 - (suc ())
   (suc x) - zero = n→Fin[1+n] (suc x)
   (suc x) - (suc y) = FinLift (x - y)
-       
+
   n→Fin[n+1] : (n : ℕ) → Fin (suc n)
   n→Fin[n+1] 0 = zero
   n→Fin[n+1] (suc n) = suc (n→Fin[n+1] n)
@@ -1338,18 +1489,461 @@ module BaseArithmetic where
 
  open Relations
  module Results where
+  open BaseDefinitions.Negation.Definition
+  open BaseDefinitions.Void
+  open BaseDefinitions.Unit
+  open BaseDefinitions.Sum
+  open BaseDefinitions.Product
   open BaseDefinitions.Equality.Definition
-  open BaseDefinitions.Nat
-  open Operations
-  n=n-0 : (n : Nat) → n ≡ (n - 0)
+  open BaseResults
+  open Equality.Properties
+  open BaseDefinitions.Nat renaming (Nat to ℕ)
+  open Operations hiding (_+_ ; _*_)
+  open Functions.Special
+  open Functions.Predicates
+  open Functions.Composition.Definition
+  open BinaryPredicates hiding (_≤_ ; _<_)
+  open Relations.Properties.Totality
+  open Relations.BinaryRelations.Properties.Antisymmetry
+  open Relations.BinaryRelations.Properties.Irreflexivity
+  open Relations.BinaryRelations.Properties.Asymmetry
+  open LogicFunctionProperties
+
+  ℕ-rec : ∀ {i} {P : ℕ → Set i} → P 0 → ({n : ℕ} → P n → P (suc n)) → ((n : ℕ) → P n)
+  ℕ-rec {P = P} z s 0 = z
+  ℕ-rec {P = P} z s (suc n) = s (ℕ-rec {P = P} z s n)
+
+  _+_ : ℕ → ℕ → ℕ
+  _+_ x = ℕ-rec x suc
+
+  _*_ : ℕ → ℕ → ℕ
+  _*_ x = ℕ-rec 0 (λ y → y + x)
+  
+  sx≠x : {x : ℕ} → (suc x) ≠ x
+  sx≠x {x} ()
+
+  x+sy=sx+y : (x y : ℕ) → (x + (suc y)) ≡ ((suc x) + y)
+  x+sy=sx+y x = ℕ-rec refl (cong suc)
+
+  sx+y=x+sy : (x y : ℕ) → ((suc x) + y) ≡ (x + (suc y))
+  sx+y=x+sy x = ℕ-rec refl (cong suc)
+
+
+  -- 1) ℕ is Dedekind infinite; suc is injective and proper
+  -- almost formalizing the argument "The nats are infinite because we can always add 1 to get another Nat, and that Nat will be new"
+  suc-inj : suc isInjective
+  suc-inj p = cong pred p
+
+  isZero : ℕ → Set
+  isZero 0 = ⊤
+  isZero (suc x) = ⊥
+
+  sx≠0 : {x : ℕ} → (suc x) ≠ 0
+  sx≠0 p = ⊤≠⊥ (≡-sym (cong isZero p))
+
+  suc-proper : ¬ (suc isSurjective)
+  suc-proper f = ω (⊤≠⊥ (≡-sym (cong isZero (π₂ (f 0)))))
+
+  x+sy≠x : {x y : ℕ} → (x + (suc y)) ≠ x
+  x+sy≠x {x}       {0}     p  = sx≠x p
+  x+sy≠x {0}       {suc y} p  = sx≠0 p
+  x+sy≠x {suc x}   {suc y} p  = x+sy≠x {x} {suc y} (cong pred (≡-trans (≡-sym (sx+y=x+sy x (suc (suc y)))) p))
+
+
+  -- 2) 0 is the identity element for addition
+  x=0+x : (x : ℕ) → x ≡ (0 + x)
+  x=0+x = ℕ-rec refl (cong suc)
+
+  0+-unique : (x y : ℕ) → (x + y) ≡ x → y ≡ 0
+  0+-unique x 0 p = refl
+  0+-unique x (suc y) p = ω (x+sy≠x {x} {y} p)
+  
+  0*x=0 : (x : ℕ) → (0 * x) ≡ 0
+  0*x=0 = ℕ-rec refl id -- 0*x=0→0*sx=0 0*sx = 0*x+0=0*x=0
+
+  0=0*x : (x : ℕ) → 0 ≡ (0 * x)
+  0=0*x = ℕ-rec refl id
+
+  0*-unique : (x y : ℕ) → (x * y) ≡ 0 → (x ≡ 0) ∨ (y ≡ 0)
+  0*-unique 0       x       p = inl refl
+  0*-unique (suc x) 0       p = inr refl
+  0*-unique (suc x) (suc y) ()
+
+  n=n-0 : (n : ℕ) → n ≡ (n - 0)
   n=n-0 0 = refl
   n=n-0 (suc n) = refl
+
+  +-comm-ind : {x : ℕ} {y : ℕ} → (x + y) ≡ (y + x) → (x + (suc y)) ≡ ((suc y) + x)
+  +-comm-ind {x} {y} p = ≡-trans (cong suc p) (x+sy=sx+y y x)
+
+  -- 3) Addition is commutative
+  -- a nicer proof of this would be nice
+  +-comm : (x y : ℕ) → (x + y) ≡ (y + x)
+  +-comm x = ℕ-rec (x=0+x x) (+-comm-ind {x})
+
+  -- 4) Addition is associative
+  +-assoc : (x y z : ℕ) → (x + (y + z)) ≡ ((x + y) + z)
+  +-assoc x y = ℕ-rec refl (cong suc)
+
+  -- so (ℕ,+) is a commutative monoid
+
+  _≤_ : (x y : ℕ) → Set
+  x ≤ y = ∃ k ∈ ℕ , ((x + k) ≡ y)
+
+  _<_ : (x y : ℕ) → Set
+  x < y = ∃ k ∈ ℕ , ((x + (suc k)) ≡ y)
+
+  𝕤x≰0 : {x : ℕ} → ¬ ((suc x) ≤ 0)
+  𝕤x≰0 {x} (k , 𝕤x+k=0) = sx≠0 (≡-trans (≡-sym (sx+y=x+sy x k)) 𝕤x+k=0)
+
+
+  0≤x : (x : ℕ) → 0 ≤ x
+  0≤x x = (x , ≡-sym (x=0+x x))
+  
+  0≤-unique : (y : ℕ) → ((x : ℕ) → y ≤ x) → y ≡ 0
+  0≤-unique 0 f = refl
+  0≤-unique (suc n) f = ω (𝕤x≰0 (f 0))
+
+  -- successor is order-preserving
+  x≤y→sx≤sy : {x y : ℕ} → x ≤ y → (suc x) ≤ (suc y)
+  x≤y→sx≤sy {x} {y} (k , x+k=y) = k , ≡-trans (sx+y=x+sy x k) (cong suc x+k=y)
+
+  sx≤sy→x≤y : {x y : ℕ} → (suc x) ≤ (suc y) → x ≤ y
+  sx≤sy→x≤y {x} {y} (k , sx+k=sy) = k , cong pred (≡-trans (≡-sym (sx+y=x+sy x k)) sx+k=sy)
+
+  x<y→sx<sy : {x y : ℕ} → x < y → (suc x) < (suc y)
+  x<y→sx<sy {x} {y} (k , x+sk=y) = k , ≡-trans (sx+y=x+sy x (suc k)) (cong suc x+sk=y)
+
+  sx<sy→x<y : {x y : ℕ} → (suc x) < (suc y) → x < y
+  sx<sy→x<y {x} {y} (k , sx+sk=sy) = k , cong pred (≡-trans (≡-sym (sx+y=x+sy x (suc k))) sx+sk=sy)
   
 
+  -- 5) ≤ is a total order
+  -- reflexivity can also be defined relative to an equivalence relation
+  ≤-refl : Reflexive _≤_
+  ≤-refl x = (0 , refl)
+
+  ≤-antisym : Antisymmetric _≡_ ≡-equiv _≤_
+  ≤-antisym {zero} {zero} p q = refl
+  ≤-antisym {zero} {suc y} p q = ω (𝕤x≰0 q)
+  ≤-antisym {suc x} {zero} p q = ω (𝕤x≰0 p)
+  ≤-antisym {suc x} {suc y} (k₁ , sx+k₁=sy) (k₂ , sy+k₂=sx) = cong suc (≤-antisym {x} {y} (k₁ , (cong pred (≡-trans (x+sy=sx+y x k₁) sx+k₁=sy))) (k₂ , (cong pred (≡-trans (x+sy=sx+y y k₂) sy+k₂=sx))))
+
+  ≤-trans : Transitive _≤_
+  ≤-trans {x} {y} {z} (k₁ , x+k₁=y) (k₂ , y+k₂=z) = (k₁ + k₂) , ≡-trans (+-assoc x k₁ k₂) (≡-trans (cong (λ q → q + k₂) x+k₁=y) y+k₂=z)
+
+  ≤-total : Total _≤_
+  ≤-total 0 y = inl (y , ≡-sym (x=0+x y))
+  ≤-total (suc x) 0 = inr ((suc x) , ≡-sym (x=0+x (suc x)))
+  ≤-total (suc x) (suc y) = ∨-map x≤y→sx≤sy x≤y→sx≤sy (≤-total x y) -- : x ≤ y ∨ y ≤ x
+
+
+  ≤-leq₁ : {x y : ℕ} → (x ≤ y) → (x < y) ∨ (x ≡ y)
+  ≤-leq₁ {x} {y} (0 , p) = inr p
+  ≤-leq₁ {x} {y} (suc k , p) = inl (k , p)
+
+  ≤-leq₂ : {x y : ℕ} → (x < y) ∨ (x ≡ y) → x ≤ y
+  ≤-leq₂ {x} {y} (inl (k , p)) = (suc k , p)
+  ≤-leq₂ {x} {.x} (inr refl) = ≤-refl x
+
+
+  -- 6) _<_ is a strict total order
+  
+  <-irrefl : Irreflexive _<_
+  <-irrefl {x} (k , x+sk=x) = ω (x+sy≠x {x} {k} x+sk=x)
+
+  <-asymm : Asymmetric _<_
+  <-asymm {x} {y} (k₁ , x+sk₁=y) (k₂ , y+sk₂=x) = <-irrefl (((suc k₁) + k₂) , (≡-trans (+-assoc x (suc k₁) (suc k₂)) (≡-trans (cong (λ q → q + (suc k₂)) x+sk₁=y) y+sk₂=x)))
+
+  
+  <-trichotomy : (x y : ℕ) → ((x < y) ∨ (x ≡ y) ∨ (y < x))
+  <-trichotomy 0 0 = inr (inl refl)
+  <-trichotomy 0 (suc y) = inl (y , ≡-sym (x=0+x (suc y)))
+  <-trichotomy (suc x) 0 = inr (inr (x , ≡-sym (x=0+x (suc x))))
+  <-trichotomy (suc x) (suc y) = ∨-map x<y→sx<sy (∨-map (cong suc) x<y→sx<sy) (<-trichotomy x y)
+
+  
+  <-trans : Transitive _<_
+  <-trans {x} {y} {z} (k₁ , x+sk₁=y) (k₂ , y+sk₂=z) = ((suc k₁) + k₂) , ≡-trans (+-assoc x (suc k₁) (suc k₂)) (≡-trans (cong (λ q → q + (suc k₂)) x+sk₁=y) y+sk₂=z)
+
+
+  x<y→x≠y : {x y : ℕ} → x < y → x ≠ y
+  x<y→x≠y {x} {.x} (k , x+sk=x) refl = x+sy≠x {x} {k} x+sk=x 
+
+  x<y→y≰x : {x y : ℕ} → x < y → ¬ (y ≤ x)
+  x<y→y≰x p q = x<y→x≠y p (≤-antisym (≤-leq₂ (inl p)) q)
+
+  𝕤x≰x : {x : ℕ} → ¬ ((suc x) ≤ x)
+  𝕤x≰x {x} = x<y→y≰x {x} {suc x} (0 , refl)
+
+  ℕ-unbounded : ¬ (∃ x ∈ ℕ , ((y : ℕ) → y ≤ x))
+  ℕ-unbounded (x , f) = 𝕤x≰x (f (suc x))
+
+
+  diff-x-x=0 : (x : ℕ) → (diff x x) ≡ 0
+  diff-x-x=0 = ℕ-rec refl id
+
+  {-
+  diff as metric on ℕ
+  -}
+  -- inherently greater than 0
+  -- diff x y = 0 → x = y
+  diff-IoI : (x y : ℕ) → (diff x y) ≡ 0 → x ≡ y
+  diff-IoI 0       0       p = refl
+  diff-IoI 0       (suc y) ()
+  diff-IoI (suc x) 0       ()
+  diff-IoI (suc x) (suc y) p = cong suc (diff-IoI x y p)
+
+  diff-IoI₂ : (x y : ℕ) → x ≡ y → (diff x y) ≡ 0
+  diff-IoI₂ 0       0       p  = refl
+  diff-IoI₂ 0       (suc x) ()
+  diff-IoI₂ (suc x) 0       ()
+  diff-IoI₂ (suc x) (suc y) p  = diff-IoI₂ x y (cong pred p)
+
+  diff-comm : (x y : ℕ) → (diff x y) ≡ (diff y x)
+  diff-comm 0       0       = refl
+  diff-comm 0       (suc y) = refl
+  diff-comm (suc x) 0       = refl
+  diff-comm (suc x) (suc y) = diff-comm x y
+
+  +-lemma1 : {x y z z' : ℕ} → (x + z) ≡ y → (x + z') ≡ y → z ≡ z'
+  +-lemma1 {x} {y}     {0}     {0}      p q = refl
+  +-lemma1 {x} {y}     {0}     {suc z'} p q = ω (x+sy≠x {x} {z'} (≡-trans q (≡-sym p)))
+  +-lemma1 {x} {y}     {suc z} {0}      p q = ω (x+sy≠x {x} {z} (≡-trans p (≡-sym q)))
+  +-lemma1 {x} {0}     {suc z} {suc z'} ()
+  +-lemma1 {x} {suc y} {suc z} {suc z'} p q = cong suc (+-lemma1 {x} {y} (cong pred p) (cong pred q))
+  
+  ≤-lemma1 : {x y : ℕ} → x ≤ y → y ≡ (x + (diff x y))
+  ≤-lemma1 {0}       {0}         p       = refl
+  ≤-lemma1 {0}       {(suc y)}   p       = x=0+x (suc y)
+  ≤-lemma1 {(suc x)} {0}         (k , p) = ω (sx≠0 (≡-trans (≡-sym (sx+y=x+sy x k)) p))
+  ≤-lemma1 {(suc x)} {(suc y)}   (k , p) = ≡-trans (cong suc (≤-lemma1 {x} {y} (sx≤sy→x≤y (k , p)))) (≡-sym (sx+y=x+sy x (diff x y)))
+
+
+  ∧-sym : ∀ {i j} {A : Set i} {B : Set j} → A ∧ B → B ∧ A
+  ∧-sym (a , b) = b , a
+
+  ∧-trans : ∀ {i j k} {A : Set i} {B : Set j} {C : Set k} → A ∧ B → B ∧ C → A ∧ C
+  ∧-trans (a , b) (b' , c) = a , c
+
+  ∨-sym : ∀ {i j} {A : Set i} {B : Set j} → A ∨ B → B ∨ A
+  ∨-sym (inl a) = inr a
+  ∨-sym (inr b) = inl b
+  
+  ≤-range-trichotomy : (x y z : ℕ) → x ≤ z → (y < x) ∨ (((x ≤ y) ∧ (y ≤ z)) ∨ (z < y))
+  ≤-range-trichotomy x y z p = proof
+   where
+    lemma1 : (y < x) ∨ (y ≡ x) ∨ (x < y)
+    lemma1 = <-trichotomy y x
+
+    lemma2 : (z < y) ∨ (z ≡ y) ∨ (y < z)
+    lemma2 = <-trichotomy z y
+
+    lemma3 : (y < x) ∨ (y ≡ x) ∨ (x < y) → (z < y) ∨ (z ≡ y) ∨ (y < z) → (y < x) ∨ ((x ≤ y) ∧ (y ≤ z)) ∨ (z < y)
+    lemma3 (inl y<x) q         = inl y<x
+    lemma3 p         (inl z<y) = inr (inr z<y)
+    lemma3 (inr p)   (inr q)   = inr (inl (≤-leq₂ (∨-map id ≡-sym (∨-sym p)) , ≤-leq₂ (∨-map id ≡-sym (∨-sym q))))
+
+    proof = lemma3 lemma1 lemma2
+  
+
+  -- simplify this proof
+  diff-triangle₁ : {x y z : ℕ} → (x ≤ y) → (y ≤ z) → (diff x z) ≡ ((diff x y) + (diff y z))
+  diff-triangle₁ {x} {y} {z} p q = +-lemma1 (≡-sym (≤-lemma1 (≤-trans p q))) (≡-sym (≡-trans (≤-lemma1 q) (≡-trans (cong (λ r → r + (diff y z)) (≤-lemma1 p)) (≡-sym (+-assoc x (diff x y) (diff y z))))))
+  {-
+   ≤-lemma1 p : y=x+diffxy ;
+   ≤-lemma1 q : z=y+diffyz ;
+
+   ≡-trans (≤-lemma1 q) (cong (λ r → r + (diff y z)) (≤-lemma1 p)) : z=x+diffxy+diffyz;
+   ≤-lemma1 (≤-trans p q) : z = x+diffxz
+   +-lemma1 (≡-sym (≤-lemma1 (≤-trans p q))) (≡-trans (≤-lemma1 q) (cong (λ r → r + (diff y z)) (≤-lemma1 p)))               : diffxz=(diffxy+diffyz) 
+  -}
+
+
+  -- simplify this proof
+  diff-triangle₂ : {x y z : ℕ} → (y < x) → (x ≤ z) → ((diff x z) + ((diff x y) * 2)) ≡ ((diff x y) + (diff y z))
+  diff-triangle₂ {x} {y} {z} y<x x≤z = proof
+   where
+    y≤x : y ≤ x
+    y≤x = ≤-leq₂ (inl y<x)
+
+    y≤z : y ≤ z
+    y≤z = ≤-trans y≤x x≤z
+
+    lemma1 : x ≡ (y + (diff y x))
+    lemma1 = ≤-lemma1 y≤x
+
+    lemma2 : (y + (diff y x)) ≡ (y + (diff x y))
+    lemma2 = cong (_+_ y) (diff-comm y x)
+
+    lemma3 : x ≡ (y + (diff x y))
+    lemma3 = ≡-trans lemma1 lemma2
+
+    lemma4 : z ≡ (x + (diff x z))
+    lemma4 = ≤-lemma1 x≤z
+
+    lemma5 : z ≡ (y + ((diff x y) + (diff x z)))
+    lemma5 = ≡-trans lemma4 (≡-trans (cong (λ q → q + (diff x z)) lemma3) (≡-sym (+-assoc y (diff x y) (diff x z))))
+
+    lemma6 : z ≡ (y + (diff y z))
+    lemma6 = ≤-lemma1 y≤z
+
+    lemma7 : (diff y z) ≡ ((diff x y) + (diff x z))
+    lemma7 = +-lemma1 {y} {z} {(diff y z)} {((diff x y) + (diff x z))} (≡-sym lemma6) (≡-sym lemma5)
+
+    lemma8 : ((diff x y) * 2) ≡ ((0 + (diff x y)) + (diff x y))
+    lemma8 = refl
+
+    lemma9 : ((0 + (diff x y)) + (diff x y)) ≡ (0 + ((diff x y) + (diff x y)))
+    lemma9 = ≡-sym (+-assoc 0 (diff x y) (diff x y))
+
+    lemma10 : (0 + ((diff x y) + (diff x y))) ≡ ((diff x y) + (diff x y))
+    lemma10 = ≡-sym (x=0+x ((diff x y) + (diff x y)))
+
+    lemma11 : ((diff x y) * 2) ≡ ((diff x y) + (diff x y))
+    lemma11 = ≡-trans lemma9 lemma10
+
+    lemma12 : ((diff x z) + ((diff x y) * 2)) ≡ ((diff x z) + ((diff x y) + (diff x y)))
+    lemma12 = cong (_+_ (diff x z)) lemma11
+
+    lemma13 : ((diff x z) + ((diff x y) + (diff x y))) ≡ (((diff x z) + (diff x y)) + (diff x y))
+    lemma13 = +-assoc (diff x z) (diff x y) (diff x y)
+
+    lemma14 : ((diff x z) + (diff x y)) ≡ ((diff x y) + (diff x z))
+    lemma14 = +-comm (diff x z) (diff x y)
+    
+    lemma15 : ((diff x z) + (diff x y)) ≡ (diff y z)
+    lemma15 = ≡-trans lemma14 (≡-sym lemma7)
+
+    lemma16 : (((diff x z) + (diff x y)) + (diff x y)) ≡ ((diff y z) + (diff x y))
+    lemma16 = cong (λ q → q + (diff x y)) lemma15
+
+    lemma17 : ((diff y z) + (diff x y)) ≡ ((diff x y) + (diff y z))
+    lemma17 = +-comm (diff y z) (diff x y)
+
+    proof = ≡-trans lemma12 (≡-trans lemma13 (≡-trans lemma16 lemma17))
+
+  diff-triangle₂' : {x y z : ℕ} → (y < x) → (x ≤ z) → (diff x z)  ≤ ((diff x y) + (diff y z))
+  diff-triangle₂' {x} {y} {z} y<x x≤z = ((diff x y) * 2) , diff-triangle₂ y<x x≤z
+  {-
+  ≤-lemma1 p : x=y+diffyx
+  ≤-lemma1 q : z=x+diffxz
+  ≤-lemma1 (≤-leq₁ (inl p)) : z = y + diffyz
+   
+
+  ≡-trans (≤-lemma1 q) (cong (λ r → r + (diff x z))) : z=y+diffyx + diffxz
+  +-lemma1 ≤-lemma1 (≤-leq₁ (inl p)) (≡-trans (≤-lemma1 q) (cong (λ r → r + (diff x z)))) : diffyz = diffyx+diffxz
+  diffxy + diffyz = diffxy + (diffyx + diffxz)
+  diffxy + (diffyx+diffxz) = diffxz + 2*(diffxy)
+  -}
+
+  diff-triangle₃ : {x y z : ℕ} → (x ≤ z) → (z < y) →  ((diff x z) + ((diff y z) * 2)) ≡ ((diff x y) + (diff y z))
+  diff-triangle₃ {x} {y} {z} x≤z z<y = proof
+   where
+    z≤y : z ≤ y
+    z≤y = ≤-leq₂ (inl z<y)
+
+    x≤y : x ≤ y
+    x≤y = ≤-trans x≤z z≤y
+
+    lemma1 : z ≡ (x + (diff x z))
+    lemma1 = ≤-lemma1 x≤z
+
+    lemma2 : y ≡ (z + (diff z y))
+    lemma2 = ≤-lemma1 z≤y
+
+    lemma3 : y ≡ (x + (diff x y))
+    lemma3 = ≤-lemma1 x≤y
+
+    lemma4 : y ≡ (x + ((diff x z) + (diff z y)))
+    lemma4 = ≡-trans lemma2 (≡-trans (cong (λ q → q + (diff z y)) lemma1) (≡-sym (+-assoc x (diff x z) (diff z y))))
+
+    lemma5 : (diff x y) ≡ ((diff x z) + (diff z y))
+    lemma5 = +-lemma1 (≡-sym lemma3) (≡-sym lemma4)
+
+    lemma6 : (diff x y) ≡ ((diff x z) + (diff y z))
+    lemma6 = ≡-trans lemma5 (cong (_+_ (diff x z)) (diff-comm z y)) 
+
+    lemma7 : ((diff x y) + (diff y z)) ≡ ((diff x z) + ((diff y z) + (diff y z)))
+    lemma7 = ≡-trans (cong (λ q → q + (diff y z)) lemma6) (≡-sym (+-assoc (diff x z) (diff y z) (diff y z)))
+
+    lemma8 : ((diff y z) + (diff y z)) ≡ (0 + ((diff y z) + (diff y z)))
+    lemma8 = x=0+x ((diff y z) + (diff y z))
+
+    lemma9 : (0 + ((diff y z) + (diff y z))) ≡ ((0 + (diff y z)) + (diff y z))
+    lemma9 = +-assoc 0 (diff y z) (diff y z)
+
+    lemma10 : ((diff y z) + (diff y z)) ≡ ((0 + (diff y z)) + (diff y z))
+    lemma10 = ≡-trans lemma8 lemma9
+
+    lemma11 : ((diff x z) + ((diff y z) + (diff y z))) ≡ ((diff x z) + ((diff y z) * 2))
+    lemma11 = cong (_+_ (diff x z)) lemma10
+
+    proof = ≡-sym (≡-trans lemma7 lemma11)
+
+  diff-triangle₃' : {x y z : ℕ} → (x ≤ z) → (z < y) →  (diff x z) ≤ ((diff x y) + (diff y z))
+  diff-triangle₃' {x} {y} {z} p q = (((diff y z) * 2) , diff-triangle₃ p q)
+
+  ∨-ind : ∀ {i j k} {A : Set i} {B : Set j} {C : Set k} → (A → C) → (B → C) → A ∨ B → C
+  ∨-ind f g (inl a) = f a
+  ∨-ind f g (inr b) = g b
+
+
+  diff-triangle : (x y z : ℕ) → (diff x z) ≤ ((diff x y) + (diff y z))
+  diff-triangle x y z = ∨-ind f (g ∘ f) (≤-total x z)  -- x ≤ z ∨ z ≤ x
+   where
+    f : {a b : ℕ} → (a ≤ b) → (diff a b) ≤ ((diff a y) + (diff y b))
+    f {a} {b} a≤b = ∨-ind g (∨-ind h i) (≤-range-trichotomy a y b a≤b)
+     where
+      g = λ p → diff-triangle₂' p a≤b
+      h = λ p → ≤-leq₂ (inr (diff-triangle₁ (first p) (second p)))
+      i = λ p → diff-triangle₃' a≤b p
+
+    g : {a b : ℕ} → (diff a b) ≤ ((diff a y) + (diff y b)) → (diff b a) ≤ ((diff b y) + (diff y a))
+    g {a} {b} (k , ab+k=ay+yb) = (k , ≡-trans (≡-sym (cong (λ q → q + k) (diff-comm a b))) (≡-trans ab+k=ay+yb (≡-trans (cong (λ q → q + (diff y b)) (diff-comm a y)) (≡-trans (cong (_+_ (diff y a)) (diff-comm y b)) (+-comm (diff y a) (diff b y))))))
+
+
+  {-
+  *-comm-ind : {x y : ℕ} → (x * y) ≡ (y * x) → (x * (suc y)) ≡ ((suc y) * x)
+  *-comm-ind {x} {y} p = ≡-trans (cong suc p) : x * y + x ≡ (suc y) * x
+
+  
+  *-comm : (x y : ℕ) → (x * y) ≡ (y * x)
+  *-comm x = ℕ-rec (0=0*x x) (cong suc)
+  -}
+
+  {-
+  *-assoc : (x y z : ℕ) → (x * (y * z))  ≡ ((x * y) * z)
+  *-assoc x y = ℕ-rec refl (cong suc)
+  -}
+
+  {-
+  ÷-lemma : (x y : ℕ) → ∃ z , (y ≡ (suc z)) → ((y * (first (x ÷ y))) + (second (x ÷ y))) ≡ x
+  ÷-lemma x zero (z , ())
+  ÷-lemma zero (suc z) (.z , refl) = 
+  -}
 
 
 
+module Containers2 where
+ module Vector where
+  module Operations where
+   open BaseDefinitions.Vector
+   open BaseDefinitions.Nat
+   open BaseDefinitions.Fin
+   open BaseArithmetic.Results
+   open BaseArithmetic.FinOperations
+   open Equality.Properties
+   
+   remove : ∀ {i} {A : Set i} {n : Nat} → Vector A (suc n) → Fin (suc n) → Vector A n
+   remove {i} {A} {zero} (a ∷ []) zero = []
+   remove {i} {A} {zero} (a ∷ []) (suc ())
+   remove {i} {A} {suc n} (a ∷ as) zero = as
+   remove {i} {A} {suc n} (a ∷ as) (suc x) = a ∷ (remove as x)
 
+   Vector++ : ∀ {i} {A : Set i} {m n : Nat} → Vector A m → Vector A n → Vector A (m + n)
+   Vector++ {i} {A} {0}     {n} []        v2 = coerce v2 (cong (Vector A) (x=0+x n))
+   Vector++ {i} {A} {suc m} {n} (a ∷ as) v2 = coerce (a ∷ (Vector++ as v2)) (cong (Vector A) (x+sy=sx+y m n))
 
 module BaseAbstractAlgebra where
  open Functions
@@ -1607,6 +2201,7 @@ module Numbers where
  open BaseDefinitions.BaseTypes.Nat renaming (Nat to ℕ)
  open BaseDefinitions.BaseTypes.Fin
  open BaseDefinitions.Product
+ open BaseDefinitions.Sum
  open BaseDefinitions.Equality.Definition
  open Equality.Properties
  open BaseArithmetic.Operations renaming (_÷_ to _divide_)
@@ -1695,6 +2290,9 @@ module Numbers where
   -- equivalent to free monoid on 1 generator?
   -- free objects unique?
  module NonZeroNats where
+  open Functions.Inverses.FunctionInverses
+  open Functions.Predicates
+  open Functions.Bijections
   -- the NonZeroNats have the same "structure"
   -- but different operations
   -- can define them as a subset of Nat
@@ -1727,6 +2325,18 @@ module Numbers where
   ℕ*→ℕ one = 1
   ℕ*→ℕ (suc n*) = suc (ℕ*→ℕ n*)
 
+  ℕ*→ℕ₂ : ℕ* → ℕ
+  ℕ*→ℕ₂ one = 0
+  ℕ*→ℕ₂ (suc n*) = suc (ℕ*→ℕ₂ n*)
+
+  ℕ*→ℕ₃ : ℕ* → ℕ
+  ℕ*→ℕ₃ n = pred (ℕ*→ℕ n)
+
+  ℕ→ℕ* : ℕ → ℕ*
+  ℕ→ℕ* 0 = one
+  ℕ→ℕ* (suc n) = suc (ℕ→ℕ* n)
+
+
   -- and then one might ask, why didn't we define ℕ in terms of ℕ* ?
    -- ℕ* is seen as a subset of ℕ
    -- but there are situations where it occurs independently of ℕ
@@ -1738,6 +2348,23 @@ module Numbers where
    -- non-zero Nats under addition
    -- the set of iterations of a given function behaves like the Nats
    -- under multiplication
+  ℕ→ℕ*-inv : ℕ→ℕ* isInverseOfₑ ℕ*→ℕ₂
+  ℕ→ℕ*-inv = (L-inv , R-inv)
+   where
+    L-inv : ℕ→ℕ* isLInverseOfₑ ℕ*→ℕ₂
+    L-inv one = refl
+    L-inv (suc n) = cong suc (L-inv n)
+      
+    R-inv : ℕ→ℕ* isRInverseOfₑ ℕ*→ℕ₂
+    R-inv zero = refl
+    R-inv (suc n) = cong suc (R-inv n)
+
+
+
+    
+  ℕ→ℕ*-bij : ℕ→ℕ* isBijective
+  ℕ→ℕ*-bij = first (Inv-bij ℕ→ℕ* (ℕ*→ℕ₂ , (invₑ-sym {f = ℕ→ℕ*} {g = ℕ*→ℕ₂} ℕ→ℕ*-inv)))
+
 
  module NonZeroNat₂ where
   open Functions.Composition.Definition
@@ -1748,6 +2375,13 @@ module Numbers where
  
 
  module Primes where
+  open BaseDefinitions.Sum
+  open BaseDefinitions.Nat
+  open BaseDefinitions.Equality.Definition
+  open BaseArithmetic.BinaryPredicates
+  
+  Prime : Nat → Set
+  Prime n = (a : Nat) → a divides n → (a ≡ n) ∨ (a ≡ 1)
   -- fundamental theorem of arithmetic: unique decomposition into products of powers of primes
   -- nth prime function
   -- https://primes.utm.edu/notes/faq/p_n.html
@@ -1875,7 +2509,39 @@ module Numbers where
    module Fractions₃ where
     data ℚ : Set where
      _/_ : ℤ → (n : ℕ) → (n ≠ 0) → ℚ
+
    module Fractions₄ where
+    ℚ : Set
+    ℚ = ℤ × ℕ
+
+   module Fractions₅ where
+    ℚ : Set
+    ℚ = ℤ × ℕ*
+
+   module Fractions₆ where
+    ℚ : Set
+    ℚ = ∃ q ∈ (ℤ × ℕ) , (∃ r ∈ ℕ , (r ≡ (suc (second q)))) 
+
+   module FractionEquivalences where
+    open Fractions
+    open Fractions₂ renaming (ℚ to ℚ₂)
+    open Fractions₃ renaming (ℚ to ℚ₃)
+    open Fractions₄ renaming (ℚ to ℚ₄)
+    open Fractions₅ renaming (ℚ to ℚ₅)
+    open Fractions₆ renaming (ℚ to ℚ₆)
+    open Functions.Composition.Definition
+    open Functions.Predicates
+    open Functions.Inverses.FunctionInverses
+    open Functions.Bijections
+
+
+    ℚ→ℚ₂ : ℚ → ℚ₂
+    ℚ→ℚ₂ (a / b) = a / (ℕ→ℕ* b)
+
+   
+    
+   
+   module Fractions₇ where
     data ℚ : Set where
      _÷_ : ℤ → (n : ℕ) → {p : ((n eq 0) ≡ false)} → ℚ
 
@@ -1888,7 +2554,7 @@ module Numbers where
     2/3 = (possuc 1) / 3
     -}
 
-   module Fractions₅ where
+   module Fractions₈ where
     data ℚ : Set where
      _÷_ : ℕ → (d : ℕ) → {p : ((d eq 0) ≡ false)} → ℚ
 
@@ -1906,7 +2572,7 @@ module Numbers where
     2/3 = (2 / 3) {refl}
 
    
-   module Fractions₆ where
+   module Fractions₉ where
     
     data ℚ : Set where
      _÷_ : ℕ → (d : ℕ) → {p : False (d ≟ 0)} → ℚ
@@ -2452,7 +3118,10 @@ where
   -- http://tutorial.math.lamar.edu/Classes/CalcI/LimitsProperties.aspx
   
  -- translation of terminating / repeating real power expansions into Rationals
- 
+ -- Errett Bishop's definition of real numbers; MrChico's implementation in Agda:
+  -- https://github.com/MrChico/agda-stdlib/blob/clean/src/Data/Real.agda
+  
+
 
  module Algebraic where
  -- solutions to polynomial equations
@@ -2514,10 +3183,7 @@ fundamental theorem of algebra
 -}
  module Polynomials where
 
-module Geometry where
-{-
-
--}
+  
 
 {-
 pythagorean theorem & euclidean distance formulae
@@ -3635,7 +4301,8 @@ module Sets where
   getEquivs : ∀ {i j k m} {A : Set i} → (R : A → A → Set j) → Equivalence R → (A → Set k) → Set (i ⊔ (j ⊔ (k ⊔ (lsuc m))))
   getEquivs {i} {j} {k} {m} R eq S = _is-[_,_]-equivalenceClass {m = m} S R eq
 
-  
+
+
   mkEquivDisjointnessLemma : ∀ {i j} {A : Set i} → (R : A → A → Set j) → (eq : Equivalence R) → (x y : A) → ¬ (R x y) → Disjoint₂ (mkEquiv x R eq) (mkEquiv y R eq)
   mkEquivDisjointnessLemma {i} {j} {A} R eq x y ¬Rxy a (Rxa , Rya) = ¬Rxy Rxy
    where
@@ -4217,6 +4884,82 @@ http://h.web.umkc.edu/halle/PapersForEveryone/Dofboop.pdf
 -}
  
  ---------------------------------------------------------------------------------------
+ module Cardinality₁ where
+  open Functions.Predicates
+  open Functions.Bijections
+  open Sets.PropositionalSets
+  
+  Cardinality : ∀ {i} → Set i → Set i → Set i
+  Cardinality {i} A = mkEquiv A (_hasBijectionWith_) Bij-equiv
+
+ module Cardinality₂ where
+  open BaseDefinitions.Equality.Definition
+  open Equality.Properties
+  open BaseDefinitions.Product
+  open Functions.Predicates
+  open Functions.Inverses.FunctionInverses
+  open Functions.Bijections
+  open Cardinality₁ renaming (Cardinality to TypeCardinality)
+
+  -- note the generalizations of injectivity and surjectivity
+  Cardinality : ∀ {i} {A : Set i} → (S : A → Set i) → Set i → Set i
+  Cardinality {i} {A} S B = ∃ f ∈ (B → A) , ((f isInjective) ∧ ((b : B) → S (f b)) ∧ ((a : A) → S a → ∃ b ∈ B , ((f b) ≡ a)))
+
+  Cardinality-lemma : ∀ {i} {A : Set i} → (S : A → Set i) → (B B' : Set i) → Cardinality S B → Cardinality S B' → TypeCardinality B B'
+  Cardinality-lemma {i} {A} S B B' (f , (f-inj , (f-embedding , f-covering))) (g , (g-inj , (g-embedding , g-covering))) =  (h₁ , h₁-bij)
+   where
+    h₁ : B → B'
+    h₁ b = π₁ (g-covering (f b) (f-embedding b))
+
+    h₁-lemma1 : (b : B) → S (f b)
+    h₁-lemma1 b = f-embedding b
+
+    h₁-lemma2 : (b : B) → ∃ b* ∈ B' , ((g b*) ≡ (f b))
+    h₁-lemma2 b = g-covering (f b) (f-embedding b)
+
+    h₂ : (b : B) → (g (h₁ b)) ≡ (f b)
+    h₂ b = π₂ (g-covering (f b) (f-embedding b))
+
+    h₁' : B' → B
+    h₁' b' = π₁ (f-covering (g b') (g-embedding b'))
+
+    h₁'-lemma1 : (b' : B') → S (g b')
+    h₁'-lemma1 b' = g-embedding b'
+
+    h₁'-lemma2 : (b' : B') → ∃ b'* ∈ B , ((f b'*) ≡ (g b'))
+    h₁'-lemma2 b' = f-covering (g b') (g-embedding b')
+
+    h₂' : (b' : B') → (f (h₁' b')) ≡ (g b')
+    h₂' b' = π₂ (f-covering (g b') (g-embedding b'))
+
+    h'h-inv : h₁' isInverseOfₑ h₁
+    h'h-inv = (h'h-Linv , h'h-Rinv)
+     where
+      h'h-Linv : (h₁' isLInverseOfₑ h₁)
+      h'h-Linv x = h'hx=x
+       where
+        ghx=fx : (g (h₁ x)) ≡ (f x)
+        ghx=fx = h₂ x
+ 
+        fh'hx=ghx : (f (h₁' (h₁ x))) ≡ g (h₁ x)
+        fh'hx=ghx = h₂' (h₁ x)
+        
+        h'hx=x = f-inj (≡-trans fh'hx=ghx ghx=fx) 
+      h'h-Rinv : (h₁' isRInverseOfₑ h₁)
+      h'h-Rinv x = hh'x=x
+       where
+        fh'x=gx : (f (h₁' x)) ≡ (g x)
+        fh'x=gx = h₂' x
+
+        ghh'x=fh'x : (g (h₁ (h₁' x))) ≡ (f (h₁' x))
+        ghh'x=fh'x = h₂ (h₁' x)
+        
+        hh'x=x = g-inj (≡-trans ghh'x=fh'x fh'x=gx)
+        
+    h₁-bij : h₁ isBijective
+    h₁-bij = π₁ (Inv-bij h₁ (h₁' , h'h-inv))
+  
+      
  module Finiteness where
   module I-finiteness where
    open BaseDefinitions.Product
@@ -4327,7 +5070,120 @@ http://h.web.umkc.edu/halle/PapersForEveryone/Dofboop.pdf
  
 -- correspondence between finite cardinalities and individual natural numbers
 -- 
-      
+
+module Geometry where
+ open BaseDefinitions.Void
+ open BaseDefinitions.Equality.Definition
+ open Equality.Properties
+ open BaseDefinitions.Product
+ open BaseDefinitions.Nat renaming (Nat to ℕ)
+ open BaseArithmetic.Operations hiding (_+_)
+ open BaseArithmetic.Results
+ open Sets.PropositionalSets
+ open Cardinality.Cardinality₂ renaming (Cardinality to SetCardinality)
+ open BaseDefinitions.Fin
+ open BaseArithmetic.FinOperations
+
+ Point : Set
+ Point = ℕ × ℕ
+
+
+ Grid-metric : Point → Point → ℕ 
+ Grid-metric (a , b) (a' , b') = (diff a a') + (diff b b')
+ --inherently non-zero
+
+ {-
+ Grid-metric-IoI : (p q : Grid) → (Grid-metric p q) ≡ 0 → p ≡ q
+ Grid-metric-IoI (0       , 0      ) (0        , 0       ) refl = refl
+ Grid-metric-IoI (x       , 0      ) (y        , (suc b')) p    = ω (sx≠0 p)
+ Grid-metric-IoI (x       , (suc b)) (y        , 0       ) p    = ω (sx≠0 p)
+ Grid-metric-IoI ((suc a) , x      ) (0        , y       ) p    = ω (sx≠0 (≡-trans (≡-sym (sx+y=x+sy a (diff x y))) p)) --  (+-comm (suc a) (diff x y)))))
+ Grid-metric-IoI (0       , x      ) ((suc a') , y       ) p    = ω (sx≠0 (≡-trans (≡-sym (sx+y=x+sy a' (diff x y))) p))
+ Grid-metric-IoI (0       , (suc b)) (0        , (suc b')) p    = ∧-≡-lemma refl (cong suc (cong second (Grid-metric-IoI (0 , b) (0 , b') p)))
+ Grid-metric-IoI ((suc a) , 0      ) ((suc a') , 0       ) p    = ∧-≡-lemma (cong suc (cong first (Grid-metric-IoI (a , 0) (a' , 0) p))) refl
+ Grid-metric-IoI ((suc a) , (suc b)) ((suc a') , (suc b')) p    = proof
+  where
+   ab=a'b' : (a , b) ≡ (a' , b')
+   ab=a'b' = Grid-metric-IoI (a , b) (a' , b') p
+   a=a'    = cong first ab=a'b'
+   b=b'    = cong second ab=a'b'
+   sa=sa'  = cong suc a=a'
+   sb=sb'  = cong suc b=b'
+   proof   = ∧-≡-lemma sa=sa' sb=sb'
+  -}
+
+
+ {-
+ Grid-metric-IoI₂ : (p q : Grid) → p ≡ q → (Grid-metric p q) ≡ 0
+ Grid-metric-IoI₂ (a , b) (.a , .b) p = ≡-trans (cong (_+_ (diff a a')) (cong second p)) (cong (λ q → 0 + q) (cong 
+ -}
+
+ Grid-metric-comm : (p q : Point) → (Grid-metric p q) ≡ (Grid-metric q p)
+ Grid-metric-comm (a , b) (a' , b') = ≡-trans (cong (λ q → q + (diff b b')) (diff-comm a a')) (cong (_+_ (diff a' a)) (diff-comm b b'))
+
+ {-
+ Grid-metric-triangle : (x y z : Point) → 
+ -}
+
+ -- equivalence classes of sets by cardinality
+ -- equivalence classes by cardinality partitions any set-level
+ -- so we need a Cardinality type
+  -- the Cardinality of a Type will be the equivalence class of that set wrt the 
+  -- the Cardinality of a Set will be the 
+
+ -- needs *a lot* more work
+ data Grid-measure : (Point → Set) → ℕ → Set₁ where
+  empty : Grid-measure (λ p → ⊥) 0
+  singleton : {p : Point} → Grid-measure ([ p ]) 1
+  union : {S T : Point → Set} {m n : ℕ} → (Grid-measure S m) → (Grid-measure T n) → (Grid-measure (S ∪ T) (m + n))
+
+ Grid-measure₁ : (ℕ → Set) → Set → Set
+ Grid-measure₁ S B = SetCardinality S B
+
+ -- prove that this satisfies the definition of a measure
+ Interval : ℕ → (ℕ → Set)
+ Interval n = λ m → m < n
+
+ {-
+ m[Interval] : (n : ℕ) → SetCardinality (Interval n) (Fin n)
+ m[Interval] n = Fin[n]→ℕ , (Fin[n]→ℕ-inj , (Fin[n]→ℕ-embedding , Fin[n]→ℕ-covering))
+  where
+   Fin[n]→ℕ : Fin n → ℕ
+   Fin[n]→ℕ zero = 0
+   Fin[n]→ℕ (suc n) = suc (Fin[n]→ℕ (Fin[n]→Fin[n+1] n))
+   
+   Fin[n]→ℕ-inj : {x y : Fin n} → (Fin[n]→ℕ x) ≡ (Fin[n]→ℕ y) → x ≡ y
+   Fin[n]→ℕ-inj {zero} {zero} p = refl
+   Fin[n]→ℕ-inj {zero} {suc y} ()
+   Fin[n]→ℕ-inj {suc x} {zero} ()
+   Fin[n]→ℕ-inj {suc x} {suc y} p = proof
+    where
+     proof
+   
+   Fin[n]→ℕ-embedding : (x : Fin n) → (Fin[n]→ℕ x) < n
+   Fin[n]→ℕ-embedding {x} = proof
+    where
+     proof
+
+   Fin[n]→ℕ-covering : (m : ℕ) → m < n → ∃ x ∈ (Fin n) , ((Fin[n]→ℕ x) ≡ m)
+   Fin[n]→ℕ-covering m (k , m+sk=n) = (x , fx=m)
+    where
+     x
+     fx=m
+ -}
+ -- ∃ f ∈ (B → A) , ((f isInjective) ∧ ((b : B) → S (f b)) ∧ ((a : A) → S a → ∃ b ∈ B , ((f b) ≡ a)))
+
+
+ {-
+ Grid-measure₂ : (Point → Set) → Set → Set
+ Grid-measure₂ S B = SetCardinality S B
+ -}
+
+ -- length of a path through ℕ × ℕ by way of metric
+ -- length of a path through ℕ × ℕ by way of measure
+ -- equivalence of these definitions of path-length
+ 
+
 module Functors where
 {-
  homomorphism is a mapping that preserves connectedness
@@ -5988,7 +6844,7 @@ module ModalRewriter where
  open BaseDefinitions.Equality.Definition
  open Equality.Properties
  open BaseDefinitions.List
- open Containers.List.Operations
+ open Containers.List.Operations hiding (_<_>)
  open BaseDefinitions.Nat
  open BaseDefinitions.Vector
  open BaseDefinitions.Unit
@@ -5999,15 +6855,17 @@ module ModalRewriter where
  open BaseDefinitions.BaseTypes.Fin
  open BaseArithmetic
  open BaseArithmetic.Operations
- open BaseArithmetic.Results
+ open BaseArithmetic.FinOperations hiding (_-_)
+ open BaseArithmetic.Results hiding (_+_)
  open Containers.Maybe.Definition
  open Containers.Maybe.BooleanPredicates
  open Containers.Maybe.Complex
  open Containers.List.BooleanPredicates
- open Containers.Vector.BooleanPredicates
+ open Containers.Vector.BooleanPredicates hiding ([_])
  open Containers.BinTree
  open Character
  open String
+ open Containers2.Vector.Operations
 
  -- rule = pair(input-pattern , output-pattern)
  -- ruleset = list of rules
@@ -6116,33 +6974,219 @@ module ModalRewriter where
          else                           (n          , (doCHAR   c state))
       ))
 
- {-
+ 
  parseInput : List Char → Maybe AST
  parseInput s = parse s emptyState
- -}
+ 
 
- {-
+ 
  -- disjoint-set roots either: point to some term, or point back to themselves
+ -- could alternatively have the vars themselves be trees as in unifying-variables
+  -- this is really the underlying data-structure that union-find exploits;
  find-check : {A : Set} {n : Nat} → Vector Bool n → (A ∨ (Vector Bool n)) → Bool
  find-check v (inl a) = true
  find-check v (inr w) = VectorEq BoolEq v w
 
+ {-
  find-helper2 : {A : Set} {n : Nat} → Vector Bool n → (A ∨ (Vector Bool n)) → 
+ -}
 
- find-helper : {A : Set} {n : Nat} → BinTree (A ∨ (Vector Bool n)) n → Vector Bool n → Nat → Maybe (Vector Bool n)
- find-helper s v 0 = Nothing
- find-helper s v (suc n) = if (find-check v (retrieve s v)) then (Just v) else (find-helper s (retrieve s v) n)
+ find-checkLemma : {A : Set} {n : Nat} → (v : Vector Bool n) → (p : (A ∨ (Vector Bool n))) → (find-check v p) ≡ false → ∃ w ∈ (Vector Bool n) , (p ≡ (inr w))
+ find-checkLemma {A} {n} v (inl a) ()
+ find-checkLemma {A} {n} v (inr w) p = w , refl
 
- find : {A : Set} {n : Nat} → BinTree (A ∨ (Vector Bool n)) n → Vector Bool n → Vector Bool n
- find {A} {n} s v = find-helper s v (2 ^ n)
 
- union : {m n : Nat} → BinTree ((List (Ast₃ m)) ∨ (Vector Bool n)) n → (v w : Vector Bool n) → BinTree ((List (AST₃ m)) ∨ (Vector Bool n)) n
- union s v w = store (store s ((retrieve s v) ++ (retrieve s w))) w (inr v)
+ find-checkLemma2 : {A : Set} {n : Nat} → (v : Vector Bool n) → (s : (BinTree (A ∨ (Vector Bool n)) n)) → (find-check v (retrieve s v)) ≡ false → ∃ w ∈ (Vector Bool n) , ((retrieve s v) ≡ (inr w))
+ find-checkLemma2 {A} {n} v s p = find-checkLemma v (retrieve s v) p
 
+ check-inl : ∀ {i j} {A : Set i} {B : Set j} → A ∨ B → Bool
+ check-inl (inl a) = true
+ check-inl (inr b) = false
+
+ check-inr : ∀ {i j} {A : Set i} {B : Set j} → A ∨ B → Bool
+ check-inr (inl a) = false
+ check-inr (inr b) = true
+
+ extract-inl : ∀ {i j} {A : Set i} {B : Set j} → (p : A ∨ B) → (check-inl p) ≡ true → A
+ extract-inl (inl a) p = a
+ extract-inl (inr b) ()
+
+ extract-inr : ∀ {i j} {A : Set i} {B : Set j} → (p : A ∨ B) → (check-inr p) ≡ true → B
+ extract-inr (inl a) ()
+ extract-inr (inr b) p = b
+ 
+
+ find-helper : {A : Set} {n : Nat} → BinTree (A ∨ (Vector Bool n)) n → Vector Bool n → List (Vector Bool n) → Nat → Maybe ((Vector Bool n) × (List (Vector Bool n)))
+ find-helper s v l 0 = Nothing
+ find-helper s v l (suc n) =
+  -- check if the retrieved node is a root (constant or self-pointing var), otherwise retrieve again
+  dite (find-check v (retrieve s v))
+   (λ p → (Just (v , l)))
+   (λ p → (find-helper s (π₁ (find-checkLemma2 v s p)) (v ∷ l) n))
+ 
+ binTree-find : {A : Set} {n : Nat} → BinTree (A ∨ (Vector Bool n)) n → Vector Bool n → Maybe ((Vector Bool n) × (List (Vector Bool n)))
+ binTree-find {A} {n} s v = find-helper s v [] (2 ^ n)
+
+ union-helper : {A : Set} {n : Nat} (f : A → A → A) → (a b : A ∨ (Vector Bool n)) → A ∨ (Vector Bool n)
+ union-helper {A} f (inl a) (inl b) = inl (f a b)
+ union-helper {A} f (inl a) (inr w) = inl a
+ union-helper {A} f (inr v) (inl b) = inl b
+ union-helper {A} f (inr v) (inr w) = inr v
+
+ {-
+ p = (binTree-find s v) q = (binTree-find s w)
+ first p    <---  first q
+ union-helper _++_ (retrieve s p) (retrieve s q) <--- first p
+ -}
+
+ {-
+ union₂ : {m n : Nat} → BinTree ((List (AST₃ m)) ∨ (Vector Bool n)) n → (v w : Vector Bool n) → BinTree ((List (AST₃ m)) ∨ (Vector Bool n)) n
+ union₂ s v w = store (store s ((retrieve s v) ++ (retrieve s w))) w (inr v)
+ -} 
+
+ Dictionary : ∀ {i j} (A : Set i) (B : Set j) (R : A → A → Bool) → Set (i ⊔ j)
+ Dictionary {i} {j} A B R = List (A × B)
+
+ Dictionary-lookup : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} → Dictionary A B R → A → Maybe B
+ Dictionary-lookup []                x = Nothing
+ Dictionary-lookup {R = R} ((a , b) ∷ rest) x = if (R x a) then (Just b) else (Dictionary-lookup {R = R} rest x)
+
+ Dictionary-add : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} → Dictionary A B R → A → B → Dictionary A B R
+ Dictionary-add []                x y = (x , y) ∷ []
+ Dictionary-add {R = R} ((a , b) ∷ rest) x y = if (R x a) then ((x , y) ∷ rest) else (Dictionary-add {R = R} rest x y)
+
+ Dictionary-remove : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} → Dictionary A B R → A → Dictionary A B R
+ Dictionary-remove [] a = []
+ Dictionary-remove {R = R} ((a , b) ∷ rest) x = if (R x a) then rest else ((a , b) ∷ (Dictionary-remove {R = R} rest x))
+
+ 
+ Dictionary-removeAll : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} → Dictionary A B R → A → Dictionary A B R
+ Dictionary-removeAll [] a = []
+ Dictionary-removeAll {R = R} ((a , b) ∷ rest) x = (if (R x a) then [] else [ (a , b) ]) ++ (Dictionary-remove {R = R} rest x)
+
+ Dictionary₂ : ∀ {i j} (A : Set i) (B : Set j) (R : A → A → Bool) (n : Nat) → Set (i ⊔ j)
+ Dictionary₂ A B R n = Vector (A × B) n
+
+ Dictionary₂-lookup : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → Dictionary₂ A B R n → A → Maybe B
+ Dictionary₂-lookup [] a = Nothing
+ Dictionary₂-lookup {R = R} ((a , b) ∷ rest) x = if (R x a) then (Just b) else (Dictionary₂-lookup {R = R} rest x)
+
+ Dictionary₂-lookup₂ : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → Dictionary₂ A B R n → A → Maybe (Fin n)
+ Dictionary₂-lookup₂ [] a = Nothing
+ Dictionary₂-lookup₂ {R = R} ((a , b) ∷ rest) x =
+  if (R x a) then
+    (Just zero)
+  else (
+   (λ lookupRest → 
+     dite (checkMaybe lookupRest)
+     (λ t → Just (suc (extractMaybe lookupRest t))) 
+     (λ f → Nothing)
+   ) (Dictionary₂-lookup₂ {R = R} rest x) 
+  )
+  
+
+ Dictionary₂-storeConditional : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → Dictionary₂ A B R n → A → B → Dictionary₂ A B R n
+ Dictionary₂-storeConditional [] x y = []
+ Dictionary₂-storeConditional {R = R} ((a , b) ∷ rest) x y = if (R x a) then ((x , y) ∷ rest) else ((a , b) ∷ (Dictionary₂-storeConditional {R = R} rest x y))
+ 
+
+ Dictionary₂-remove : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → Dictionary₂ A B R (suc n) → Fin (suc n) → Dictionary₂ A B R n
+ Dictionary₂-remove = remove
+
+
+
+ Dictionary₂-addDefinite :
+  ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} →
+  Dictionary₂ A B R n →
+  A →
+  B →
+  Dictionary₂ A B R (suc n)
+  
+ Dictionary₂-addDefinite d x b = (x , b) ∷ d
+
+ 
+
+
+ PointerDictionary : ∀ {i j} (A : Set i) (B : Set j) (R : A → A → Bool) → Set (i ⊔ j)
+ PointerDictionary {i} {j} A B R = Dictionary A (A ∨ B) R
+
+ -- tries and acyclic DFAs
+
+
+ 
+ PointerDictionary₂ : ∀ {i j} (A : Set i) (B : Set j) (R : A → A → Bool) (n : Nat) → Set (i ⊔ j)
+ PointerDictionary₂ {i} {j} A B R n = Dictionary₂ A (A ∨ B) R n
+
+ PointerDictionary₃ : ∀ {i} (A : Set i) (n : Nat) → Set i
+ PointerDictionary₃ A n = Vector ((Fin n) ∨ A) n
+
+ PointerDictionary₂-find : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → PointerDictionary₂ A B R n → A → Maybe (Fin n)
+ PointerDictionary₂-find {n = 0} [] x = Nothing
+ PointerDictionary₂-find {R = R} {n = suc n} d  x =
+  (λ lookup-x → 
+   dite (checkMaybe lookup-x)
+    (λ t →
+     (λ x-index →
+      dite (check-inl (second (d < x-index >)))
+       (λ t₂ →
+        (λ pointer-value → 
+         dite (R x pointer-value)
+          (λ t₃ → Just x-index)
+          (λ f →
+            (λ recurse →
+             dite (checkMaybe recurse)
+              (λ t₄ → Just (Fin[n]→Fin[n+1] (extractMaybe recurse t₄)))
+              (λ f → Nothing)
+            ) (PointerDictionary₂-find {R = R} {n = n} (Dictionary₂-remove {R = R} d x-index) pointer-value)
+          )
+        ) (extract-inl (second (d < x-index >)) t₂)
+       )
+       (λ f → Just x-index)
+     )
+     (extractMaybe lookup-x t)
+    )
+    
+    (λ f → Nothing)
+  ) (Dictionary₂-lookup₂ {R = R} d x)
+  
+ {-
+ PointerDictionary₃-find : ∀ {i} {A : Set i} {n : Nat} → PointerDictionary₃ A n → Fin n → Maybe Fin n
+ PointerDictionary₃-find {n = 0}     [] ()
+ PointerDictionary₃-find {n = suc n} d 
+ -}
+ 
+
+ {-
+ PointerDictionary₂-find : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → PointerDictionary₂ A B R n → A → Maybe (Fin n)
+ PointerDictionary₂-find {n = 0}     v x = Nothing
+ PointerDictionary₂-find {n = suc n} v x =
+  (λ lookup-x → 
+   dite (checkMaybe lookup-x)
+    (λ t → )
+    (λ f → )
+  ) (Dictionary₂-lookup₂ v x)
+ -}
+
+ {-
+ PointerDictionary-find-helper : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} → PointerDictionary A B R → A → PointerDictionary A B R → Maybe (A ∧ (A ∨ B))
+ PointerDictionary-find-helper {i} {j} {A} {B} {R} 
+
+ PointerDictionary-find : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} → PointerDictionary A B R → A → Maybe (A ∧ (A ∨ B))
+ PointerDictionary-find p x =
+  dite
+   (checkMaybe p[x]))
+   (λ q → Just (x , (extractMaybe p[x] q)))
+   (λ q → Nothing)
+    where
+     p[x] = Dictionary-lookup p x
+ -}  
+ {-
  bind : {m n : Nat} → Vector Bool n → (AST₃ m) → BinTree (List (AST₃ m)) n → BinTree (List (AST₃ m)) n
  bind v (token (var w)) s = union s v w
  bind v x s = store s ((retrieve s v) ++ [ x ]) v
+ -}
 
+ {-
  -- when a var binds with another var you wanna union their trees and have one point to the other for future references
  -- 
  match-layer :
