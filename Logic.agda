@@ -458,8 +458,8 @@ module Boolean where
  module Conversions where
   open BaseDefinitions.Nat
   boolToNat : Bool → Nat
-  boolToNat true  = 0
-  boolToNat false = 1
+  boolToNat true  = 1
+  boolToNat false = 0
 
  -- functional completeness
  -- reversibility
@@ -492,14 +492,14 @@ module Containers where
     Just : A → Maybe A
   module Operations where
    open Definition
-   MaybeMap : {A B : Set} → (f : A → B) → Maybe A → Maybe B
+   MaybeMap : ∀ {i j} {A : Set i} {B : Set j} → (f : A → B) → Maybe A → Maybe B
    MaybeMap f Nothing = Nothing
    MaybeMap f (Just x) = Just (f x)
 
   module BooleanPredicates where
    open Definition
    open BaseDefinitions.Bool
-   checkMaybe : {A : Set} → Maybe A → Bool
+   checkMaybe : ∀ {i} {A : Set i} → Maybe A → Bool
    checkMaybe Nothing = false
    checkMaybe (Just x) = true
 
@@ -509,7 +509,7 @@ module Containers where
    open BaseDefinitions.Equality.Definition
    open BooleanPredicates
    
-   extractMaybe : {A : Set} → (m : Maybe A) → (checkMaybe m) ≡ true → A
+   extractMaybe : ∀ {i} {A : Set i} → (m : Maybe A) → (checkMaybe m) ≡ true → A
    extractMaybe {A} Nothing ()
    extractMaybe {A} (Just x) p = x
 
@@ -565,7 +565,7 @@ module Containers where
     ListEq eq (a₁ ∷ as₁) [] = false
     ListEq eq [] (a₂ ∷ as₂) = false
     ListEq eq (a₁ ∷ as₁) (a₂ ∷ as₂) = if (eq a₁ a₂) then ((ListEq eq) as₁ as₂) else false
- 
+    
  module Vector where
   open BaseDefinitions.Nat
   open BaseDefinitions.Vector
@@ -2172,6 +2172,9 @@ module Decidability where
  open BaseDefinitions.BaseTypes.Unit
  open BaseDefinitions.Negation.Definition
  open BaseDefinitions.BaseTypes.Bool
+ open BaseDefinitions.Equality.Definition
+ open BaseDefinitions.Product
+ 
  data Dec {i} (P : Set i) : Set i where
   yes : (p : P) → Dec P
   no : (¬p : ¬ P) → Dec P
@@ -2191,6 +2194,25 @@ module Decidability where
  False : ∀ {i} {A : Set i} → Dec A → Set
  False (yes _) = ⊥
  False (no _) = ⊤
+
+ _isSoundWrt₁_ : ∀ {i j} {A : Set i} → (A → Bool) → (A → Set j) → Set (i ⊔ j)
+ _isSoundWrt₁_ {A = A} s S = {x : A} → (s x) ≡ true → S x
+
+ _isCompleteWrt₁_ : ∀ {i j} {A : Set i} → (A → Bool) → (A → Set j) → Set (i ⊔ j)
+ _isCompleteWrt₁_ {A = A} s S = {x : A} → S x → (s x) ≡ true
+
+ _decides₁_ : ∀ {i j} {A : Set i} → (A → Bool) → (A → Set j) → Set (i ⊔ j)
+ s decides₁ S = (s isSoundWrt₁ S) ∧ (s isCompleteWrt₁ S)
+
+ _isSoundWrt₂_ : ∀ {i j} {A : Set i} → (A → A → Bool) → (A → A → Set j) → Set (i ⊔ j)
+ _isSoundWrt₂_ {A = A} r R = {x y : A} → (r x y) ≡ true → R x y
+
+ _isCompleteWrt₂_ : ∀ {i j} {A : Set i} → (A → A → Bool) → (A → A → Set j) → Set (i ⊔ j)
+ _isCompleteWrt₂_ {A = A} r R = {x y : A} → R x y → (r x y) ≡ true
+
+ _decides₂_ : ∀ {i j} {A : Set i} → (A → A → Bool) → (A → A → Set j) → Set (i ⊔ j)
+ r decides₂ R = (r isSoundWrt₂ R) ∧ (r isCompleteWrt₂ R)
+
 
 module Numbers where
  open BaseDefinitions.Void
@@ -6836,6 +6858,234 @@ module ContextFreeGrammar where
  -}
 
 
+module ListOperations where
+ open BaseDefinitions.Levels
+ open BaseDefinitions.Void
+ open BaseDefinitions.Negation
+ open BaseDefinitions.Unit
+ open BaseDefinitions.Bool
+ open BaseDefinitions.Nat renaming (suc to _+1)
+ open BaseDefinitions.Fin renaming (suc to _+1)
+ open BaseDefinitions.List
+ open BaseDefinitions.Equality.Definition
+ open BaseDefinitions.Sum
+ open BaseDefinitions.Product
+ open BaseDefinitions.Biimplication.Definition
+ open BaseDefinitions.Negation.Definition
+ open Boolean.Operations
+ open Boolean.Complex
+ open BaseArithmetic.FinOperations
+ open BaseArithmetic.BooleanPredicates
+ open BaseArithmetic.Results renaming (𝕤x≰0 to x+1≰0 ; sx≤sy→x≤y to x+1≤y+1→x≤y ; x≤y→sx≤sy to x≤y→x+1≤y+1 ; x<y→sx<sy to x<y→x+1<y+1)
+ open Equality.Properties
+ open Containers.List
+ open Containers.List.Operations
+ open Orders
+ open Decidability
+ open Functions.Special
+ open Functions.Composition.Definition
+ 
+ ∧-map : ∀ {i j k l} {A : Set i} {B : Set j} {A' : Set k} {B' : Set l} → (A → A') → (B → B') → A ∧ B → A' ∧ B'
+ ∧-map f g (a , b) = f a , g b
+
+ _∈_ : ∀ {i} {A : Set i} → A → List A → Set i
+ x ∈ []        = Lift ⊥ 
+ x ∈ (a ∷ as) = (x ≡ a) ∨ (x ∈ as)
+
+ ListIn : ∀ {i} {A : Set i} → A → List A → Set i
+ ListIn x l = foldr (_∨_ ∘ (_≡_ x)) (Lift ⊥) l
+
+ ListIn₂ : ∀ {i} {A : Set i} → A → List A → Set i
+ ListIn₂ x l = ∃ n ∈ (Fin (length l)) , ((l < n >) ≡ x)
+
+ ⊥-∨-lemma : ∀ {i} {A : Set i} → A ∨ ⊥ → A
+ ⊥-∨-lemma {i} {A} (inl a) = a
+ ⊥-∨-lemma {i} {A} (inr ())
+
+ ListIn₂-lemma : ∀ {i} {A : Set i} (l : List A) (n : Fin (length l)) (x : A) → ((l < n >) ≡ ((x ∷ l) < n +1 >))
+ ListIn₂-lemma []        ()
+ ListIn₂-lemma (a ∷ as) n    x = refl
+
+ {-
+ ∈-lemma : ∀ {i} {A : Set i} → (x : A) → (l : List A) → 
+ -}
+
+ {-
+ ∈→ListIn₂ : ∀ {i} {A : Set i} → (x : A) → (l : List A) → x ∈ l → ListIn₂ x l
+ ∈→ListIn₂ x [] ()
+ ∈→ListIn₂ x (a ∷ as) (inl p) = (zero , (≡-sym p))
+ ∈→ListIn₂ x (a ∷ as) (inr p) = ∧-map _+1 id (∈→ListIn₂ x as p)
+ -}
+ {-
+  where
+   recurse = ∈→ListIn₂ x as p
+ -}
+ {-
+ ListIn→ListIn₂ : ∀ {i} {A : Set i} → (x : A) → (l : List A) → ListIn x l → ListIn₂ x l
+ ListIn→ListIn₂ x []        ()
+ ListIn→ListIn₂ x (a ∷ as) (inl p) = (zero , (≡-sym p))
+ ListIn→ListIn₂ x (a ∷ as) (inr p) = (((first recurse) +1) , second recurse)
+  where
+   recurse : ListIn₂ x as
+   recurse = ListIn→ListIn₂ x as p
+ -}
+ {-
+   first recurse : Fin (length as)
+   second recurse : as < (first recurse) > ≡ x
+    
+ -}
+
+ {-
+ _∈_,_times : ∀ {i} {A : Set i} → A → List A → Set i
+ x ∈ₙ l ,      0 times = ¬ (x ∈ l)
+ x ∈ₙ l , (n +1) times = 
+ -}
+
+ SameSet : ∀ {i} {A : Set i} → (l1 l2 : List A) → Set i
+ SameSet {i} {A} l1 l2 = (x : A) → (x ∈ l1) ↔ (x ∈ l2)
+
+ {-
+ SameMultiset : ∀ {i} {A : Set i} → (l1 l2 : List A) → Set i
+ SameMultiset {i} {A} l1 l2 = 
+ -}
+
+ SameList : ∀ {i} {A : Set i} → (l1 l2 : List A) → Set i
+ SameList []        []          = Lift ⊤
+ SameList []        (a' ∷ as') = Lift ⊥
+ SameList (a ∷ as) []          = Lift ⊥
+ SameList (a ∷ as) (a' ∷ as') = (a ≡ a') ∧ (SameList as as')
+
+
+ filter : ∀ {i} {A : Set i} → List A → (A → Bool) → List A
+ filter []        F = []
+ filter (a ∷ as) F = if (F a) then (filter as F) else (a ∷ (filter as F))
+
+ prefix : ∀ {i} {A : Set i} → (l : List A) → Fin ((length l) +1) → List A
+ prefix l         zero    = []
+ prefix []        (() +1)
+ prefix (a ∷ as) (n +1) = a ∷ (prefix as n)
+
+ {-
+ suffix : ∀ {i} {A : Set i} → (l : List A) → Fin ((length l) +1) → List A
+ suffix l         zero    = []
+ suffix (a ∷ as) (n +1) = a ∷ 
+ -}
+
+ _<∶_> : ∀ {i} {A : Set i} → (l : List A) → (end : Fin ((length l) +1)) → List A
+ l <∶ end > = prefix l end
+
+ 
+ _<_∶> : ∀ {i} {A : Set i} → (l : List A) → (start : Fin ((length l) +1)) → List A
+ l         < zero  ∶> = l
+ []        < () +1 ∶>
+ (a ∷ as) < n +1  ∶> = as < n ∶>
+
+ 
+ _<_∶_>-helper_ : ∀ {i} {A : Set i} → (l : List A) → (start end : Fin ((length l) +1)) → ((Fin→Nat start) ≤ (Fin→Nat end)) → List A
+ l         < zero  ∶ y    >-helper 0≤y = l <∶ y >
+ []        < () +1 ∶ y    >-helper ⁇
+ (a ∷ as) < x +1  ∶ zero >-helper x+1≤0 = ω (x+1≰0 x+1≤0)
+ (a ∷ as) < x +1  ∶ y +1 >-helper x+1≤y+1 = as < x ∶ y >-helper (x+1≤y+1→x≤y x+1≤y+1)
+
+ converse : ∀ {i j} {A : Set i} {B : Set j} → (A → B) → ¬ B → ¬ A
+ converse f ¬B a = ¬B (f a)
+
+ -- could also have done: process of elimination on the trichotomy
+ x≰y→y<x : {x y : Nat} → ¬ (x ≤ y) → y < x
+ x≰y→y<x {0}    {y}    0≰y     = ω (0≰y (0≤x y))
+ x≰y→y<x {x +1} {0}    x+1≰0   = x , ≡-sym (x=0+x (x +1))
+ x≰y→y<x {x +1} {y +1} x+1≰y+1 = x<y→x+1<y+1 {y} {x} (x≰y→y<x {x} {y} ((converse (x≤y→x+1≤y+1 {x} {y})) x+1≰y+1))
+
+ lte-decides-≤ : _lte_ decides₂ _≤_
+ lte-decides-≤ = sound , complete
+  where
+   sound : {x y : Nat} → (x lte y) ≡ true → x ≤ y
+   sound {0} {y} refl = y , ≡-sym (x=0+x y)
+   sound {x +1} {0} ()
+   sound {x +1} {y +1} p = x≤y→x+1≤y+1 (sound {x} {y} p)
+   
+   complete : {x y : Nat} → x ≤ y → (x lte y) ≡ true
+   complete {0}    {y}    0≤y     = refl
+   complete {x +1} {0}    x+1≤0   = ω (x+1≰0 x+1≤0)
+   complete {x +1} {y +1} x+1≤y+1 = complete (x+1≤y+1→x≤y x+1≤y+1)
+
+
+ ¬[x=b]→x=not-b : {x b : Bool} → ¬ (x ≡ b) → x ≡ (not b)
+ ¬[x=b]→x=not-b {true}  {true}  ¬[true=true]   = ω (¬[true=true] refl)
+ ¬[x=b]→x=not-b {true}  {false} ¬[true=false]  = refl
+ ¬[x=b]→x=not-b {false} {true}  ¬[false=true]  = refl
+ ¬[x=b]→x=not-b {false} {false} ¬[false=false] = ω (¬[false=false] refl)
+
+ x=not-b→¬[x=b] : {x b : Bool} → x ≡ (not b) → ¬ (x ≡ b)
+ x=not-b→¬[x=b] {true} {true} ()
+ x=not-b→¬[x=b] {true} {false} refl ()
+ x=not-b→¬[x=b] {false} {true} refl ()
+ x=not-b→¬[x=b] {false} {false} ()
+
+ {-
+ decides-converse : ∀ {i j} {A : Set i} {r : A → A → Bool} {R : A → A → Set j} → r decides₂ R → ({x y : Nat} → (r x y) ≡ false → ¬ (R x y)) ∧ ({x y : Nat} → ¬ (R x y) → (r x y) ≡ false)
+ decides-converse {i} {j} {A} {r} {R} (r-sound , r-complete) = r-sound-conv , r-complete-conv
+  where
+   -- converse of 
+   r-complete-conv : {x y : Nat} → (r x y) ≡ false → ¬ (R x y)s
+   r-complete-conv {x} {y} p Rxy =
+   
+   r-sound-conv : {x y : Nat} → 
+ -}
+
+ length[x++y]=length[x]+length[y] : ∀ {i} {A : Set i} (x y : List A) → length (x ++ y) ≡ ((length x) + (length y))
+ length[x++y]=length[x]+length[y] []        y = x=0+x (length y)
+ length[x++y]=length[x]+length[y] (x ∷ xs) y = ≡-trans p1 p2
+  where
+   p1 = cong _+1 (length[x++y]=length[x]+length[y] xs y)
+   p2 = x+sy=sx+y (length xs) (length y)
+  {-
+   length ((x ∷ xs) ++ y) ≡ ((length (x ∷ xs)) + (length y))
+        ↕ refl                         ↕ refl
+   length (x ∷ (xs ++ y))    (((length xs) +1) + (length y))
+        ↕ refl                          ↑  x+sy=sx+y (length xs) (length y) 
+   (length (xs ++ y)) +1      ((length xs) + ((length y) +1))
+                                        ↕ refl
+                              ((length xs) + (length y)) +1
+
+   cong _+1 (length[x++y]=length[x]+length[y] xs y) : (length (xs ++ y)) ≡ ((length xs) + (length y))
+  -}
+ {-
+ length[rev-l]=length[l] : ∀ {i} {A : Set i} (l : List A) → length (rev l) ≡ length l
+ length[rev-l]=length[l] [] = refl
+ length[rev-l]=length[l] (a ∷ as) = cong _+1 (length[rev-l]=length[l] as)
+ -} 
+
+ {-
+ _<_∶_> : ∀ {i} {A : Set i} → (l : List A) → (x y : Fin ((length l) +1)) → List A
+ _<_∶_> {i} {A} l x y =
+  dite ((Fin→Nat x) lte (Fin→Nat y))
+   true-branch
+   false-branch
+  where
+   true-branch : ((Fin→Nat x) lte (Fin→Nat y)) ≡ true → List A
+   true-branch t = l < x ∶ y >-helper ((first lte-decides-≤) t)
+
+   false-branch : ((Fin→Nat x) lte (Fin→Nat y)) ≡ false → List A
+   false-branch f = (rev ((rev l) < coerce y p ∶ coerce x p >-helper (≤-leq₂ (x≰y→y<x ((converse (second lte-decides-≤)) (x=not-b→¬[x=b] f))))))
+    where
+     p : Fin ((length (rev l)) +1) ≡ Fin ((length l) +1)
+     p = cong (λ q → Fin (q +1)) (length[rev-l]=length[l] l)
+ -}
+
+ {-
+ split : ∀ {i} {A : Set i} → List A → A → (A → A → Bool) → List (List A)
+ split [] Δ _==_ = []
+ split (a ∷ as) Δ _==_ = if (a == Δ) then 
+ -}
+
+ {-
+ SortingFunction : ∀ {i} (A : Set i) (r : A → A → Bool) → TotalOrder A (λ x y → (r x y) ≡ true) → Set i
+ SortingFunction {i} A r O = ∃ f ∈ (List A → Bool) , ((
+ -}
+
+ 
+ 
 
 module ModalRewriter where
  open BaseDefinitions.Product
@@ -6854,18 +7104,18 @@ module ModalRewriter where
  open Boolean.Conversions
  open BaseDefinitions.BaseTypes.Fin
  open BaseArithmetic
- open BaseArithmetic.Operations
+ open BaseArithmetic.Operations hiding (_+_)
  open BaseArithmetic.FinOperations hiding (_-_)
- open BaseArithmetic.Results hiding (_+_)
+ open BaseArithmetic.Results
  open Containers.Maybe.Definition
  open Containers.Maybe.BooleanPredicates
  open Containers.Maybe.Complex
- open Containers.List.BooleanPredicates
+ open Containers.List.BooleanPredicates hiding (find)
  open Containers.Vector.BooleanPredicates hiding ([_])
- open Containers.BinTree
+ open Containers.BinTree hiding (store)
  open Character
  open String
- open Containers2.Vector.Operations
+ open Containers2.Vector.Operations renaming (remove to VectorRemove)
 
  -- rule = pair(input-pattern , output-pattern)
  -- ruleset = list of rules
@@ -6968,7 +7218,7 @@ module ModalRewriter where
    where
      nextState : ∃ m ∈ Nat , (Maybe (parseState m))
      nextState =
-      if         (CharEq c LPAREN) then ((1 + n)    , (doLPAREN state))
+      if         (CharEq c LPAREN) then ((n + 1)    , (doLPAREN state))
        else (if  (CharEq c RPAREN) then ((n - 1)    , (doRPAREN state))
         else (if (CharEq c SPACE ) then (n          , (doSPACE  state))
          else                           (n          , (doCHAR   c state))
@@ -7043,152 +7293,400 @@ module ModalRewriter where
  union₂ : {m n : Nat} → BinTree ((List (AST₃ m)) ∨ (Vector Bool n)) n → (v w : Vector Bool n) → BinTree ((List (AST₃ m)) ∨ (Vector Bool n)) n
  union₂ s v w = store (store s ((retrieve s v) ++ (retrieve s w))) w (inr v)
  -} 
+ module Dictionary where
+  Dictionary : ∀ {i j} (A : Set i) (B : Set j) (R : A → A → Bool) → Set (i ⊔ j)
+  Dictionary {i} {j} A B R = List (A × B)
 
- Dictionary : ∀ {i j} (A : Set i) (B : Set j) (R : A → A → Bool) → Set (i ⊔ j)
- Dictionary {i} {j} A B R = List (A × B)
+  lookup : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} → Dictionary A B R → A → Maybe B
+  lookup []                x = Nothing
+  lookup {R = R} ((a , b) ∷ rest) x = if (R x a) then (Just b) else (lookup {R = R} rest x)
 
- Dictionary-lookup : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} → Dictionary A B R → A → Maybe B
- Dictionary-lookup []                x = Nothing
- Dictionary-lookup {R = R} ((a , b) ∷ rest) x = if (R x a) then (Just b) else (Dictionary-lookup {R = R} rest x)
+  add : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} → Dictionary A B R → A → B → Dictionary A B R
+  add []                x y = (x , y) ∷ []
+  add {R = R} ((a , b) ∷ rest) x y = if (R x a) then ((x , y) ∷ rest) else (add {R = R} rest x y)
 
- Dictionary-add : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} → Dictionary A B R → A → B → Dictionary A B R
- Dictionary-add []                x y = (x , y) ∷ []
- Dictionary-add {R = R} ((a , b) ∷ rest) x y = if (R x a) then ((x , y) ∷ rest) else (Dictionary-add {R = R} rest x y)
-
- Dictionary-remove : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} → Dictionary A B R → A → Dictionary A B R
- Dictionary-remove [] a = []
- Dictionary-remove {R = R} ((a , b) ∷ rest) x = if (R x a) then rest else ((a , b) ∷ (Dictionary-remove {R = R} rest x))
+  remove : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} → Dictionary A B R → A → Dictionary A B R
+  remove [] a = []
+  remove {R = R} ((a , b) ∷ rest) x = if (R x a) then rest else ((a , b) ∷ (remove {R = R} rest x))
 
  
- Dictionary-removeAll : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} → Dictionary A B R → A → Dictionary A B R
- Dictionary-removeAll [] a = []
- Dictionary-removeAll {R = R} ((a , b) ∷ rest) x = (if (R x a) then [] else [ (a , b) ]) ++ (Dictionary-remove {R = R} rest x)
+  removeAll : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} → Dictionary A B R → A → Dictionary A B R
+  removeAll [] a = []
+  removeAll {R = R} ((a , b) ∷ rest) x = (if (R x a) then [] else [ (a , b) ]) ++ (remove {R = R} rest x)
+ 
+ module Dictionary₂ where
+  Dictionary : ∀ {i j} (A : Set i) (B : Set j) (R : A → A → Bool) (n : Nat) → Set (i ⊔ j)
+  Dictionary A B R n = Vector (A × B) n
 
- Dictionary₂ : ∀ {i j} (A : Set i) (B : Set j) (R : A → A → Bool) (n : Nat) → Set (i ⊔ j)
- Dictionary₂ A B R n = Vector (A × B) n
+  {-
+  lookup : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → Dictionary A B R n → A → Maybe B
+  lookup [] a = Nothing
+  lookup {R = R} ((a , b) ∷ rest) x = if (R x a) then (Just b) else (lookup {R = R} rest x)
+  -}
 
- Dictionary₂-lookup : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → Dictionary₂ A B R n → A → Maybe B
- Dictionary₂-lookup [] a = Nothing
- Dictionary₂-lookup {R = R} ((a , b) ∷ rest) x = if (R x a) then (Just b) else (Dictionary₂-lookup {R = R} rest x)
-
- Dictionary₂-lookup₂ : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → Dictionary₂ A B R n → A → Maybe (Fin n)
- Dictionary₂-lookup₂ [] a = Nothing
- Dictionary₂-lookup₂ {R = R} ((a , b) ∷ rest) x =
-  if (R x a) then
-    (Just zero)
-  else (
-   (λ lookupRest → 
-     dite (checkMaybe lookupRest)
-     (λ t → Just (suc (extractMaybe lookupRest t))) 
-     (λ f → Nothing)
-   ) (Dictionary₂-lookup₂ {R = R} rest x) 
-  )
+  lookup : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → Dictionary A B R n → A → Maybe (Fin n)
+  lookup [] a = Nothing
+  lookup {R = R} ((a , b) ∷ rest) x =
+   if (R x a) then
+     (Just zero)
+   else (
+    (λ lookupRest → 
+      dite (checkMaybe lookupRest)
+      (λ t → Just (suc (extractMaybe lookupRest t))) 
+      (λ f → Nothing)
+    ) (lookup {R = R} rest x) 
+   )
   
 
- Dictionary₂-storeConditional : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → Dictionary₂ A B R n → A → B → Dictionary₂ A B R n
- Dictionary₂-storeConditional [] x y = []
- Dictionary₂-storeConditional {R = R} ((a , b) ∷ rest) x y = if (R x a) then ((x , y) ∷ rest) else ((a , b) ∷ (Dictionary₂-storeConditional {R = R} rest x y))
+  storeConditional : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → Dictionary A B R n → A → B → Dictionary A B R n
+  storeConditional [] x y = []
+  storeConditional {R = R} ((a , b) ∷ rest) x y = if (R x a) then ((x , y) ∷ rest) else ((a , b) ∷ (storeConditional {R = R} rest x y))
  
 
- Dictionary₂-remove : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → Dictionary₂ A B R (suc n) → Fin (suc n) → Dictionary₂ A B R n
- Dictionary₂-remove = remove
+  remove : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → Dictionary A B R (suc n) → Fin (suc n) → Dictionary A B R n
+  remove = VectorRemove
 
 
 
- Dictionary₂-addDefinite :
-  ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} →
-  Dictionary₂ A B R n →
-  A →
-  B →
-  Dictionary₂ A B R (suc n)
+  addDefinite :
+   ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} →
+   Dictionary A B R n →
+   A →
+   B →
+   Dictionary A B R (suc n)
   
- Dictionary₂-addDefinite d x b = (x , b) ∷ d
+  addDefinite d x b = (x , b) ∷ d
 
  
 
-
- PointerDictionary : ∀ {i j} (A : Set i) (B : Set j) (R : A → A → Bool) → Set (i ⊔ j)
- PointerDictionary {i} {j} A B R = Dictionary A (A ∨ B) R
+ module PointerDictionary where
+  open Dictionary
+  
+  PointerDictionary : ∀ {i j} (A : Set i) (B : Set j) (R : A → A → Bool) → Set (i ⊔ j)
+  PointerDictionary {i} {j} A B R = Dictionary A (A ∨ B) R
 
  -- tries and acyclic DFAs
 
 
- 
- PointerDictionary₂ : ∀ {i j} (A : Set i) (B : Set j) (R : A → A → Bool) (n : Nat) → Set (i ⊔ j)
- PointerDictionary₂ {i} {j} A B R n = Dictionary₂ A (A ∨ B) R n
-
- PointerDictionary₃ : ∀ {i} (A : Set i) (n : Nat) → Set i
- PointerDictionary₃ A n = Vector ((Fin n) ∨ A) n
-
- PointerDictionary₂-find : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → PointerDictionary₂ A B R n → A → Maybe (Fin n)
- PointerDictionary₂-find {n = 0} [] x = Nothing
- PointerDictionary₂-find {R = R} {n = suc n} d  x =
-  (λ lookup-x → 
-   dite (checkMaybe lookup-x)
-    (λ t →
-     (λ x-index →
-      dite (check-inl (second (d < x-index >)))
-       (λ t₂ →
-        (λ pointer-value → 
-         dite (R x pointer-value)
-          (λ t₃ → Just x-index)
-          (λ f →
-            (λ recurse →
-             dite (checkMaybe recurse)
-              (λ t₄ → Just (Fin[n]→Fin[n+1] (extractMaybe recurse t₄)))
-              (λ f → Nothing)
-            ) (PointerDictionary₂-find {R = R} {n = n} (Dictionary₂-remove {R = R} d x-index) pointer-value)
-          )
-        ) (extract-inl (second (d < x-index >)) t₂)
-       )
-       (λ f → Just x-index)
-     )
-     (extractMaybe lookup-x t)
-    )
-    
-    (λ f → Nothing)
-  ) (Dictionary₂-lookup₂ {R = R} d x)
+ module PointerDictionary₂ where
+  open Dictionary₂
   
+  PointerDictionary : ∀ {i j} (A : Set i) (B : Set j) (R : A → A → Bool) (n : Nat) → Set (i ⊔ j)
+  PointerDictionary {i} {j} A B R n = Dictionary A (A ∨ B) R n
+
+ -- what a mess!
+ -- we can clean it up syntactically quite a bit
+ -- we can simplify at least somewhat by getting rid of the check for the inr case, i.e.
+ -- we're just traversing pointers between vars and not considering the constants/terms they're bound to until later
+ -- notice how it throws away the return values from recursions until the very end
  {-
- PointerDictionary₃-find : ∀ {i} {A : Set i} {n : Nat} → PointerDictionary₃ A n → Fin n → Maybe Fin n
- PointerDictionary₃-find {n = 0}     [] ()
- PointerDictionary₃-find {n = suc n} d 
+ find(d : Dictionary , x : Key)
+
+ lookup-x = lookup d x
+ if (checkMaybe(lookup-x)) {        
+  x-index = extractMaybe(lookup-x)
+  x-value = second(d[x])
+
+  if (check-inl(x-value)) {                -- inl for pointers; inr for values
+   key = x-value.inl
+   recurse = find(d.remove(x-index),key) 
+
+   if (x == key){
+    Just x-index
+   }
+   else {
+    if (check-maybe recurse) {
+     
+    }else {
+     Nothing
+    }
+   }
+  }
+  else (Just x-index) 
+ } 
+ else Nothing
+
  -}
  
+  find : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → PointerDictionary A B R n → A → Maybe (Fin n)
+  find {n = 0}             [] x = Nothing
+  find {R = R} {n = suc n} d  x =
+   (λ lookup-x → 
+    dite (checkMaybe lookup-x)
+     (λ t →
+      (λ x-index →
+       dite (check-inl (second (d < x-index >)))
+        (λ t₂ →
+         (λ key → 
+          dite (R x key)
+           (λ t₃ → Just x-index)
+           (λ f →
+             (λ recurse →
+              dite (checkMaybe recurse)
+               (λ t₄ → Just (Fin[n]→Fin[n+1] (extractMaybe recurse t₄)))
+               (λ f → Nothing)
+             ) (find {R = R} {n = n} (remove {R = R} d x-index) key)
+           )
+         ) (extract-inl (second (d < x-index >)) t₂)
+        )
+        (λ f → Just x-index)
+      )
+      (extractMaybe lookup-x t)
+     )
+    
+     (λ f → Nothing)
+   ) (lookup {R = R} d x)
 
- {-
- PointerDictionary₂-find : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → PointerDictionary₂ A B R n → A → Maybe (Fin n)
- PointerDictionary₂-find {n = 0}     v x = Nothing
- PointerDictionary₂-find {n = suc n} v x =
-  (λ lookup-x → 
-   dite (checkMaybe lookup-x)
-    (λ t → )
-    (λ f → )
-  ) (Dictionary₂-lookup₂ v x)
- -}
+ module PointerDictionary₃ where
+  PointerDictionary : ∀ {i} (A : Set i) (n : Nat) → Set i
+  PointerDictionary A n = Vector ((Fin n) ∨ A) n
 
- {-
- PointerDictionary-find-helper : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} → PointerDictionary A B R → A → PointerDictionary A B R → Maybe (A ∧ (A ∨ B))
- PointerDictionary-find-helper {i} {j} {A} {B} {R} 
+ module PointerDictionary₄ where
+  open Dictionary₂
+  
+  PointerDictionary : ∀ {i j} (A : Set i) (B : Set j) (R : A → A → Bool) (n : Nat) → Set (i ⊔ j)
+  PointerDictionary A B R n = Dictionary A (A × Maybe B) R n 
 
- PointerDictionary-find : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} → PointerDictionary A B R → A → Maybe (A ∧ (A ∨ B))
- PointerDictionary-find p x =
-  dite
-   (checkMaybe p[x]))
-   (λ q → Just (x , (extractMaybe p[x] q)))
-   (λ q → Nothing)
-    where
-     p[x] = Dictionary-lookup p x
- -}  
- {-
- bind : {m n : Nat} → Vector Bool n → (AST₃ m) → BinTree (List (AST₃ m)) n → BinTree (List (AST₃ m)) n
- bind v (token (var w)) s = union s v w
- bind v x s = store s ((retrieve s v) ++ [ x ]) v
- -}
+  find : ∀ {i j} {A : Set i} {B : Set j} {R : A → A → Bool} {n : Nat} → PointerDictionary A B R n → A → Maybe A
+  find         {n = 0}     [] x = Nothing
+  find {i = i} {j = j} {R = R} {n = suc n} d  x = 
+   (λ lookup-x → 
+    dite (checkMaybe lookup-x)
+     (λ t →
+      (λ x-index →
+       (λ key → 
+        dite (R x key)
+         (λ t₂ → Just x)
+         (λ f → 
+          (λ recurse →
+           dite (checkMaybe recurse)
+            (λ t₃ → Just (extractMaybe recurse t₃))
+            (λ f → Nothing)
+          ) (find {R = R} {n = n} (remove {R = R} d x-index) key)
+         )
+       ) (first (second (d < x-index >)))
+      ) (extractMaybe lookup-x t)
+    )
+    (λ f → Nothing)
+   ) (lookup {R = R} d x)
 
+ module BinTrie₁ where
+  open Boolean.Conversions
+  open Containers.Maybe.Operations
+  
+  data BinTrie {i} (A : Set i) : (depth nodes : Nat) → Set i where
+   leaf : A → BinTrie A 0 1
+   left : {d n : Nat} → BinTrie A d n → BinTrie A (d + 1) n                          -- left for false
+   right : {d n : Nat} → BinTrie A d n → BinTrie A (d + 1) n                         -- right for true
+   both : {d m n : Nat} → BinTrie A d m → BinTrie A d n → BinTrie A (d + 1) (m + n)
+
+  _∈_ : ∀ {i} {A : Set i} {depth nodes : Nat} → Vector Bool depth → BinTrie A depth nodes → Bool
+  []              ∈ (leaf x)   = true
+  (true  ∷ rest) ∈ (right t)  = rest ∈ t
+  (false ∷ rest) ∈ (right t)  = false
+  (true  ∷ rest) ∈ (left t)   = false
+  (false ∷ rest) ∈ (left t)   = rest ∈ t
+  (true  ∷ rest) ∈ (both f t) = rest ∈ t
+  (false ∷ rest) ∈ (both f t) = rest ∈ f
+
+  size : ∀ {i} {A : Set i} {depth n : Nat} → BinTrie A depth n → Nat
+  size {n = n} d = n
+
+  mkTrie : ∀ {i} {A : Set i} {depth : Nat} → Vector Bool depth → A → BinTrie A depth 1
+  mkTrie {i} {A} {depth = 0}     []              x = leaf x
+  mkTrie {i} {A} {depth = suc n} (false ∷ rest) x = left (mkTrie rest x)
+  mkTrie {i} {A} {depth = suc n} (true  ∷ rest) x = right (mkTrie rest x)
+
+  store : ∀ {i} {A : Set i} {depth nodes : Nat} → (d : BinTrie A depth nodes) → (v : Vector Bool depth) → A → BinTrie A depth (nodes + (boolToNat (not (v ∈ d))))
+  store {i} {A} {depth = 0}     {nodes} (leaf  a)   []              x = leaf x
+  store {i} {A} {depth = suc n} {nodes} (left  f)   (false ∷ rest) x = left (store f rest x)
+  store {i} {A} {depth = suc n} {nodes} (left  f)   (true  ∷ rest) x = both f (mkTrie rest x)
+  store {i} {A} {depth = suc n} {nodes} (right t)   (false ∷ rest) x = coerce (both (mkTrie rest x) t) p
+   where
+    p : (BinTrie A (suc n) (1 + nodes)) ≡ (BinTrie A (suc n) (nodes + 1))
+    p = cong (BinTrie A (suc n)) (+-comm 1 nodes)
+  store {i} {A} {depth = suc n} {nodes} (right t)   (true  ∷ rest) x = right (store t rest x)
+  store {i} {A} {depth = suc n} {nodes} (both  f t) (false ∷ rest) x = coerce (both (store f rest x) t) p
+   where
+    N[f] = size f
+    N[t] = size t
+    Δ = boolToNat (not (rest ∈ f))
+    p : (BinTrie A (suc n) ((N[f] + Δ) + N[t])) ≡ (BinTrie A (suc n) ((N[f] + N[t]) + Δ))
+    p = cong (BinTrie A (suc n)) q
+     where
+      q : ((N[f] + Δ) + N[t]) ≡ ((N[f] + N[t]) + Δ)
+      q = ≡-trans r (≡-trans s u) 
+       where
+        r : ((N[f] + Δ) + N[t]) ≡ (N[f] + (Δ + N[t]))
+        r = ≡-sym (+-assoc N[f] Δ N[t])
+
+        s : (N[f] + (Δ + N[t])) ≡ (N[f] + (N[t] + Δ))
+        s = cong (_+_ N[f]) (+-comm Δ N[t])
+
+        u : (N[f] + (N[t] + Δ)) ≡ ((N[f] + N[t]) + Δ)
+        u = +-assoc N[f] N[t] Δ
+        
+  store {i} {A} {depth = suc n} {nodes} (both  f t) (true  ∷ rest) x = coerce (both f (store t rest x)) p
+   where
+    p = cong (BinTrie A (suc n)) (+-assoc (size f) (size t) (boolToNat (not (rest ∈ t))))  
+
+  lookup : ∀ {i} {A : Set i} {depth nodes : Nat} → BinTrie A depth nodes → Vector Bool depth → Maybe A
+  lookup (leaf x) [] = Just x
+  lookup (left L) (false ∷ rest) = lookup L rest
+  lookup (left L) (true ∷ rest) = Nothing
+  lookup (right R) (false ∷ rest) = Nothing
+  lookup (right R) (true ∷ rest) = lookup R rest
+  lookup (both L R) (false ∷ rest) = lookup L rest
+  lookup (both L R) (true ∷ rest) = lookup R rest
+
+  {-
+  remove : ∀ {i} {A : Set i} {depth nodes : Nat} → (d : BinTrie A depth nodes) → (v : Vector Bool depth) → Maybe (BinTrie A depth (nodes - (boolToNat (v ∈ d))))
+  remove (leaf x) [] = Nothing
+  remove (left L) (false ∷ rest) = MaybeMap left (remove L rest)
+  remove {i} {A} {depth} {nodes} (left L) (true ∷ rest) = coerce (Just (left L)) p
+   where
+    p = cong (λ q → Maybe (BinTrie A depth q)) r
+     where
+      r : nodes ≡ (nodes - 0)
+      r = n=n-0 nodes
+  remove {i} {A} {depth} {nodes} (right R) (false ∷ rest) = coerce (Just (right R)) p
+   where
+    p = cong (λ q → Maybe (BinTrie A depth q)) r
+     where
+      r : nodes ≡ (nodes - 0)
+      r = n=n-0 nodes
+  remove (right R) (true ∷ rest) = MaybeMap right (remove R rest)
+  remove {i} {A} {depth} {nodes} (both L R) (false ∷ rest) =
+   Just (
+    dite (checkMaybe (remove L rest))
+     (λ t → both (extractMaybe (remove L rest) t) R)
+     (λ f → coerce (right R) p)
+   )
+   where
+    x+y=z → z-x=y
+    sizeL = 1
+    sizeR = size R
+    p = cong (BinTrie A depth) r
+     where
+      r : 
+  remove (both L R) (true ∷ rest) =
+   Just (
+    dite (checkMaybe (remove R rest))
+     (λ t → both L (extractMaybe (remove R rest) t))
+     (λ f → left L)
+   )
+  -}
+  
+ module BinTrie₂ where
+  open Containers.Maybe.Operations
+  
+  data BinTrie {i} (A : Set i) : (depth : Nat) → Set i where
+   leaf : A → BinTrie A 0
+   left : {n : Nat} → BinTrie A n → BinTrie A (n + 1)
+   right : {n : Nat} → BinTrie A n → BinTrie A (n + 1)
+   both : {n : Nat} → BinTrie A n → BinTrie A n → BinTrie A (n + 1)
+ 
+  size : ∀ {i} {A : Set i} {depth : Nat} → BinTrie A depth → Nat
+  size (leaf x) = 1
+  size (left L) = size L
+  size (right R) = size R
+  size (both L R) = (size L) + (size R)
+
+  _∈_ : ∀ {i} {A : Set i} {depth : Nat} → Vector Bool depth → BinTrie A depth → Bool
+  []              ∈ (leaf  x)   = true
+  (false ∷ rest) ∈ (left  L)   = rest ∈ L
+  (false ∷ rest) ∈ (right R)   = false
+  (false ∷ rest) ∈ (both  L R) = rest ∈ L
+  (true  ∷ rest) ∈ (left  L)   = false
+  (true  ∷ rest) ∈ (right R)   = rest ∈ R
+  (true  ∷ rest) ∈ (both  L R) = rest ∈ R
+
+  mkTrie : ∀ {i} {A : Set i} {n : Nat} → Vector Bool n → A → BinTrie A n
+  mkTrie []              x = (leaf x)
+  mkTrie (false ∷ rest) x = left  (mkTrie rest x)
+  mkTrie (true  ∷ rest) x = right (mkTrie rest x)
+
+  store : ∀ {i} {A : Set i} {n : Nat} → BinTrie A n → Vector Bool n → A → BinTrie A n
+  store (leaf  a)   []              x = leaf x
+  store (left  L)   (false ∷ rest) x = left (store L rest x)
+  store (left  L)   (true  ∷ rest) x = both L (mkTrie rest x)
+  store (right R)   (false ∷ rest) x = both (mkTrie rest x)  R
+  store (right R)   (true  ∷ rest) x = right (store R rest x)
+  store (both  L R) (false ∷ rest) x = both L (store R rest x)
+  store (both  L R) (true  ∷ rest) x = both (store R rest x) R
+
+  lookup : ∀ {i} {A : Set i} {n : Nat} → BinTrie A n → Vector Bool n → Maybe A
+  lookup (leaf a) [] = Just a
+  lookup (left L) (false ∷ rest) = lookup L rest
+  lookup (left L) (true  ∷ rest) = Nothing
+  lookup (right R) (false ∷ rest) = Nothing
+  lookup (right R) (true ∷ rest) = lookup R rest
+  lookup (both L R) (false ∷ rest) = lookup L rest
+  lookup (both L R) (true ∷ rest) = lookup R rest
+
+  remove : ∀ {i} {A : Set i} {n : Nat} → BinTrie A n → Vector Bool n → Maybe (BinTrie A n)
+  remove (leaf  x)   []              = Nothing
+  remove (left  L)   (false ∷ rest) = MaybeMap left (remove L rest)
+  remove (left  L)   (true  ∷ rest) = Just (left L)
+  remove (right R)   (false ∷ rest) = Just (right R)
+  remove (right R)   (true  ∷ rest) = MaybeMap right (remove R rest)
+  remove (both  L R) (false ∷ rest) =
+   Just (
+    dite (checkMaybe (remove L rest))
+     (λ t → both (extractMaybe (remove L rest) t) R)
+     (λ f → right R)
+   )
+  remove (both  L R) (true  ∷ rest) =
+   Just (
+    dite (checkMaybe (remove R rest))
+     (λ t → both L (extractMaybe (remove R rest) t))
+     (λ f → left L)
+   )
+
+ module BinTrie₁,₂ where
+  open BinTrie₁ renaming (BinTrie to BinTrie₁ ; size to size₁)
+  open BinTrie₂ renaming (BinTrie to BinTrie₂ ; size to size₂)
+
+  BinTrie₁→BinTrie₂ : ∀ {i} {A : Set i} {depth nodes : Nat} → BinTrie₁ A depth nodes → BinTrie₂ A depth
+  BinTrie₁→BinTrie₂ (leaf x) = leaf x
+  BinTrie₁→BinTrie₂ (left L) = left (BinTrie₁→BinTrie₂ L)
+  BinTrie₁→BinTrie₂ (right R) = right (BinTrie₁→BinTrie₂ R)
+  BinTrie₁→BinTrie₂ (both L R) = both (BinTrie₁→BinTrie₂ L) (BinTrie₁→BinTrie₂ R)
+
+  BinTrie₂→BinTrie₁ : ∀ {i} {A : Set i} {depth : Nat} → (T : BinTrie₂ A depth) → BinTrie₁ A depth (size₂ T)
+  BinTrie₂→BinTrie₁ (leaf x) = leaf x
+  BinTrie₂→BinTrie₁ (left L) = left (BinTrie₂→BinTrie₁ L)
+  BinTrie₂→BinTrie₁ (right R) = right (BinTrie₂→BinTrie₁ R)
+  BinTrie₂→BinTrie₁ (both L R) = both (BinTrie₂→BinTrie₁ L) (BinTrie₂→BinTrie₁ R)
+
+ module PointerDictionary₅ where
+  open BinTrie₁
+    
+  PointerDictionary : ∀ {i} (A : Set i) (depth nodes : Nat) → Set i
+  PointerDictionary {i} A d n = BinTrie ((Vector Bool d) × (Maybe A)) d n
+
+
+ module PointerDictionary₆ where
+  open BinTrie₂
+
+  PointerDictionary : ∀ {i} (A : Set i) (depth : Nat) → Set i
+  PointerDictionary {i} A d = BinTrie ((Vector Bool d) × (Maybe A)) d
+
+  {-
+  find : ∀ {i} {A : Set i} {depth : Nat} → PointerDictionary A depth → Vector Bool depth → Maybe (Vector Bool depth)
+  find T k = MaybeMap f (lookup T k)
+  -}
+
+  {-
+  find-helper : {i} {A : Set i} {depth : Nat} → (d : PointerDictionary A depth) → Vector Bool depth → ∃ n ∈ Nat , ((size d) ≡ n) → Maybe (Vector Bool depth)
+  find-helper {i} {A : Set i} 
+
+  find : ∀ {i} {A : Set i} {depth : Nat} → PointerDictionary A depth → Vector Bool depth → Maybe (Vector Bool depth)
+  find
+  -}
  {-
  -- when a var binds with another var you wanna union their trees and have one point to the other for future references
- -- 
+ -- m ]=]' 
  match-layer :
   {m n : Nat} →
   List (AST₃ m) →
