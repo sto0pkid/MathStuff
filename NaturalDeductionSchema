@@ -1,0 +1,115 @@
+4 kinds of rules define a data-type:
+Type-formation
+Introduction
+Elimination
+Computation
+
+1. Type-formation rules tell you when the data-type even exists in the first place, like “Nat” is just defined to be a type, and “List A” is a type only if “A” is a type.
+
+2. Introduction rules tell you what objects you have in the type; equivalently, since types are propositions and more specifically are the types of the proofs of those propositions, the introduction rules tell you what counts as a proof of the proposition. Example,
+  zero : Nat
+  suc n : Nat  if n : Nat
+
+
+3. Elimination rules for a type/connective tell you what you can derive from an object in that type / proof of an instance of that connective. This allows you to provide proofs of universal quantifications over that type by (possibly recursively) case-matching on the introduction rules, which essentially corresponds to proofs-by-induction. Example:
+  f : forall (n : Nat) , P n
+  f zero = zero-case		– case for “zero : Nat”
+  f (suc n) = f-induction n (f n)
+    where
+     f-induction : (n : Nat) → P n → P (suc n)
+		
+4. Computation rules for a type/connective give you:
+  * Computation, of course
+  * Proof-simplification
+  * The actual rewrite relation on terms
+  * The primitive (and computably & deterministically traversable) equality relation on terms
+  
+
+Only the type-formation and the introduction rules need to be provided and the elimination and computation rules can be derived in a standard fashion in order to satisfy what are called “logical harmony conditions”. In fact we can provide a unified presentation of (almost) all the standard types, which is what will be presented here.
+
+
+Let R be the type (or parameterized/indexed) type-family being defined.
+
+Γ  and Δ represent sequences of typing judgements (a : A) such that the types in later judgements in the sequence can depend on terms in earlier values in the sequence, as in “(n : Nat), (m : Fin n)”
+
+γ and δ represent the term-variables in these sequences, i.e. “n, m” in the previous example.
+
+Let b[x\a] mean “substitute x for a in b”
+Let {δ}.c mean  δ is a sequence of term-variables contained in the term c.
+
+
+
+
+Standard data-type declaration syntax:
+
+data R (γ : Γ) : Δ → Set where
+ intro1 : (δ₁ : Δ₁) → R γ (v1 γ δ₁)
+ ...
+ introN : (δₙ : Δₙ) → R γ (vn γ δₙ)
+ 
+
+Example:
+data Vector (A : Set) : Nat → Set where
+ intro1 : Vector A zero
+ intro2 : {n : Nat} → (a : A) → (v : Vector A n) → Vector A (suc n)
+
+v1 : Set → Nat
+v1 A = zero
+
+v2 : (A : Set)(n : Nat)(a : A)(v : Vector A n) → Nat
+v2 A n a v = suc n
+
+
+
+
+
+Represented as natural deduction rules:
+
+
+TYPE FORMATION
+
+
+G |- γ : Γ
+--------------------
+G, δ : Δ |- R γ δ : Set
+
+
+
+
+INTROS
+
+
+G |- R γ δ : Set           
+G |- p : Δi    
+G |- (vi γ p) : Δ
+------------------------------------------ intro1
+G |- R-intro1 p : R γ δ
+
+...
+
+G |- R γ δ : Set           G |- p : Δₙ
+------------------------------------------ introN
+G |- R-introN p : R γ δ
+ 
+
+ELIMINATION
+
+G |- p : R γ δ 
+G, x : R γ δ |- C : Set 
+G, δ₁ : Δ₁ , Γ1 |- c₁ : C[x\(intro1 δ₁)]
+...
+G, δₙ : Δₙ , Γₙ |- cₙ : C[x\(introN δₙ)]
+----------------------------------------------- elim
+G |- R-elim p {δ₁}.c₁ ... {δₙ}.cₙ : C[x\p]
+
+Where Γi = { (R-elim q {δ₁}.c₁ ... {δₙ}.cₙ : C[x\q]) | (q : R γ δ) in Δi}
+
+This is how we get structural induction on the terms in R γ δ.
+ 
+
+
+
+COMPUTATION
+G |- R-elim (introᵢ α) {δ₁}.c₁ ... {δₙ}.cₙ : C
+---------------------------------------------------------------- comp
+G |- R-elim (introᵢ α) {δ₁}.c₁ ... {δₙ}.cₙ = c₁[δ₁\α] : C
