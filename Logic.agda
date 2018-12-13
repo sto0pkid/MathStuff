@@ -46,6 +46,7 @@ module BaseDefinitions where
   data Exists {i} {j} (A : Set i) (B : A → Set j) : Set (i ⊔ j) where
    _,_ : (a : A) → (B a) → Exists A B
 
+  infix 30 _,_
   syntax Exists A (λ x → e) = ∃ x ∈ A , e
 
   π₁ : ∀ {i j} {A : Set i} {B : A → Set j} → (p : (∃ x ∈ A , (B x))) → A
@@ -3624,7 +3625,7 @@ module SKI where
     open BaseDefinitions.Equality.Definition
     open Equality.Properties
     open BaseDefinitions.Sum
-    open BaseDefinitions.Product
+    open BaseDefinitions.Product renaming (_,_ to [[_,_]])
     open BaseDefinitions.BaseTypes.Nat
     open BaseDefinitions.BaseTypes.Bool
     open Relations.Properties.Reflexivity
@@ -3641,11 +3642,11 @@ module SKI where
     open Equivalence
 
     ↝-refl : Reflexive _↝_
-    ↝-refl x = (0 , refl)
+    ↝-refl x = [[ 0 , refl ]]
 
     
     ↝-trans : Transitive _↝_
-    ↝-trans {x} {y} {z} (m , refl) (n , refl) = (n + m , proof)
+    ↝-trans {x} {y} {z} ([[ m , refl ]]) ([[ n , refl ]]) = [[ n + m , proof ]]
      where
       lemma1 : ((Δ ** m) x) ≡ y
       lemma1 = refl
@@ -6884,6 +6885,7 @@ module ListOperations where
  open Decidability
  open Functions.Special
  open Functions.Composition.Definition
+ open Relations.BinaryRelations.Properties.Transitivity
  
  ∧-map : ∀ {i j k l} {A : Set i} {B : Set j} {A' : Set k} {B' : Set l} → (A → A') → (B → B') → A ∧ B → A' ∧ B'
  ∧-map f g (a , b) = f a , g b
@@ -7022,16 +7024,52 @@ module ListOperations where
  x=not-b→¬[x=b] {false} {true} refl ()
  x=not-b→¬[x=b] {false} {false} ()
 
- {-
- decides-converse : ∀ {i j} {A : Set i} {r : A → A → Bool} {R : A → A → Set j} → r decides₂ R → ({x y : Nat} → (r x y) ≡ false → ¬ (R x y)) ∧ ({x y : Nat} → ¬ (R x y) → (r x y) ≡ false)
- decides-converse {i} {j} {A} {r} {R} (r-sound , r-complete) = r-sound-conv , r-complete-conv
-  where
-   -- converse of 
-   r-complete-conv : {x y : Nat} → (r x y) ≡ false → ¬ (R x y)s
-   r-complete-conv {x} {y} p Rxy =
-   
-   r-sound-conv : {x y : Nat} → 
- -}
+
+ data Simplification {i} {A : Set i} : A → A → Set i where
+   _QED : {x : A} → (p : ∃ z ∈ A , (x ≡ z)) → Simplification x (π₁ p)
+   _::_ : {x z : A} → (p : ∃ y ∈ A , (x ≡ y)) → Simplification (π₁ p) z → Simplification x z
+
+ infixr 10 _::_
+
+ reduceSimplification : ∀ {i} {A : Set i} → {x z : A} → Simplification x z → x ≡ z
+ reduceSimplification {i} {A} {x} {z} ( (.z , p) QED) = p
+ reduceSimplification {i} {A} {x} {z} ( (y , p) :: s) = ≡-trans p (reduceSimplification {i} {A} {y} {z} s)
+
+ data Implication {i} : Set i → Set i → Set (lsuc i) where
+  _QED : {A : Set i} → (p : ∃ B ∈ (Set i) , (A → B)) → Implication A (π₁ p)
+  _::_ : {A : Set i} {C : Set i} → (p : ∃ B ∈ (Set i) , (A → B)) → Implication (π₁ p) C → Implication A C
+
+ reduceImplication : ∀ {i} {A C : Set i} → Implication A C → A → C
+ reduceImplication {i} {A} {C} ((.C , f) QED) = f
+ reduceImplication {i} {A} {C} ((B , f) :: I) = (reduceImplication I) ∘ f
+
+ data SatisfiedImplication {i} : Set i → Set i → Set (lsuc i) where
+  _::_ : (p : ∃ A ∈ Set i , A) → {C : Set i} → Implication (π₁ p) C → SatisfiedImplication (π₁ p) C
+
+ reduceSatisfiedImplication : ∀ {i} {A C : Set i} → SatisfiedImplication A C → C
+ reduceSatisfiedImplication (A , a :: I) =  (reduceImplication I) a
+
+ data Chain {i} {j} {A : Set i} (R : A → A → Set j) : A → A → Set (i ⊔ j) where
+  _QED : {x : A} → (p : ∃ y ∈ A , (R x y)) → Chain R x (π₁ p)
+  _::_ : {x z : A} → (p : ∃ y ∈ A , (R x y)) → Chain R (π₁ p) z → Chain R x z
+
+ reduceTransitive : ∀ {i j} {A : Set i} {R : A → A → Set j} → Transitive R → {x z : A} → Chain R x z → R x z
+ reduceTransitive {i} {j} {A} {R} R-trans {x} {z} ((.z , Rxz) QED) =  Rxz
+ reduceTransitive {i} {j} {A} {R} R-trans {x} {z} ((y , Rxy) :: chain) = R-trans Rxy (reduceTransitive R-trans chain)
+ 
+
+ length-lemma : ∀ {i} {A : Set i} (x y : List A) → length (x ++ y) ≡ ((length x) + (length y))
+ length-lemma []        y = x=0+x (length y)
+ length-lemma (x ∷ xs) y = 
+  reduceSimplification (
+    (length ((x ∷ xs) ++ y))           , refl                             ::
+    (length (x ∷ (xs ++ y)))           , refl                             ::
+    ((length (xs ++ y)) +1)             , refl                             ::
+    (((length xs) + (length y)) +1)     , cong _+1 (length-lemma xs y)     ::
+    ((length xs) + ((length y) +1))     , refl                             ::
+    (((length xs) +1) + (length y))     , x+sy=sx+y (length xs) (length y) ::
+    ((length (x ∷ xs)) + (length y))   , refl                             QED
+  )
 
  length[x++y]=length[x]+length[y] : ∀ {i} {A : Set i} (x y : List A) → length (x ++ y) ≡ ((length x) + (length y))
  length[x++y]=length[x]+length[y] []        y = x=0+x (length y)
@@ -7039,53 +7077,144 @@ module ListOperations where
   where
    p1 = cong _+1 (length[x++y]=length[x]+length[y] xs y)
    p2 = x+sy=sx+y (length xs) (length y)
-  {-
-   length ((x ∷ xs) ++ y) ≡ ((length (x ∷ xs)) + (length y))
-        ↕ refl                         ↕ refl
-   length (x ∷ (xs ++ y))    (((length xs) +1) + (length y))
-        ↕ refl                          ↑  x+sy=sx+y (length xs) (length y) 
-   (length (xs ++ y)) +1      ((length xs) + ((length y) +1))
-                                        ↕ refl
-                              ((length xs) + (length y)) +1
 
-   cong _+1 (length[x++y]=length[x]+length[y] xs y) : (length (xs ++ y)) ≡ ((length xs) + (length y))
-  -}
- {-
+ -- refl really means "by βη"
  length[rev-l]=length[l] : ∀ {i} {A : Set i} (l : List A) → length (rev l) ≡ length l
  length[rev-l]=length[l] [] = refl
- length[rev-l]=length[l] (a ∷ as) = cong _+1 (length[rev-l]=length[l] as)
- -} 
+ length[rev-l]=length[l] (a ∷ as) =
+  reduceSimplification (
+   (length (rev (a ∷ as)))                 , refl                                  ::
+   (length ((rev as) ++ (a ∷ [])))         , refl                                  ::
+   ((length (rev as)) + (length (a ∷ []))) , length-lemma (rev as) (a ∷ [])       ::
+   ((length (rev as)) + 1)                  , refl                                  ::
+   ((length as) + 1)                        , cong _+1 (length[rev-l]=length[l] as) :: 
+   ((length as) +1)                         , refl                                  ::
+   (length (a ∷ as))                       , refl                                  QED
+  )
 
- {-
+
+ Fin-coerce-lemma : {m n : Nat} → (p : m ≡ n) → (x : Fin m) → (Fin→Nat x) ≡ (Fin→Nat (coerce x (cong Fin p)))
+ Fin-coerce-lemma {zero} {n}    p  ()
+ Fin-coerce-lemma {m +1} {zero} ()
+ Fin-coerce-lemma {m +1} {n +1} refl  zero = refl
+ Fin-coerce-lemma {m +1} {n +1} refl  (x +1) = refl
+
+
  _<_∶_> : ∀ {i} {A : Set i} → (l : List A) → (x y : Fin ((length l) +1)) → List A
  _<_∶_> {i} {A} l x y =
-  dite ((Fin→Nat x) lte (Fin→Nat y))
+  dite (ℕx lte ℕy)
    true-branch
    false-branch
-  where
-   true-branch : ((Fin→Nat x) lte (Fin→Nat y)) ≡ true → List A
-   true-branch t = l < x ∶ y >-helper ((first lte-decides-≤) t)
-
-   false-branch : ((Fin→Nat x) lte (Fin→Nat y)) ≡ false → List A
-   false-branch f = (rev ((rev l) < coerce y p ∶ coerce x p >-helper (≤-leq₂ (x≰y→y<x ((converse (second lte-decides-≤)) (x=not-b→¬[x=b] f))))))
     where
-     p : Fin ((length (rev l)) +1) ≡ Fin ((length l) +1)
-     p = cong (λ q → Fin (q +1)) (length[rev-l]=length[l] l)
- -}
+     ℕx = Fin→Nat x
+     ℕy = Fin→Nat y
+     true-branch : ((Fin→Nat x) lte (Fin→Nat y)) ≡ true → List A
+     true-branch x-lte-y=true = l < x ∶ y >-helper x≤y
+      where
+       x≤y = x-lte-y=true→x≤y x-lte-y=true
+        where
+         x-lte-y=true→x≤y = first lte-decides-≤
 
- {-
+     false-branch : ((Fin→Nat x) lte (Fin→Nat y)) ≡ false → List A
+     false-branch ℕx-lte-ℕy=false = (rev ((rev l) < [y] ∶ [x] >-helper ℕ[y]≤ℕ[x]))
+      where
+       p : Fin ((length l) +1) ≡ Fin ((length (rev l)) +1) 
+       p = cong Fin (cong _+1 (≡-sym (length[rev-l]=length[l] l)))
+
+       [x] = coerce x p
+       [y] = coerce y p
+
+       ℕ[x] = Fin→Nat (coerce x p)
+       ℕ[y] = Fin→Nat (coerce y p)
+
+       ℕx=ℕ[x] : ℕx ≡ ℕ[x]
+       ℕx=ℕ[x] = Fin-coerce-lemma (cong _+1 (≡-sym (length[rev-l]=length[l] l))) x
+       
+       ℕy=ℕ[y] : ℕy ≡ ℕ[y]
+       ℕy=ℕ[y] = Fin-coerce-lemma (cong _+1 (≡-sym (length[rev-l]=length[l] l))) y
+
+       ℕ[x]-lte-ℕ[y]=ℕx-lte-ℕy : (ℕ[x] lte ℕ[y]) ≡ (ℕx lte ℕy)
+       ℕ[x]-lte-ℕ[y]=ℕx-lte-ℕy =
+        reduceSimplification (
+             (ℕ[x] lte ℕ[y])               , refl
+          :: (ℕx lte ℕ[y])                 , cong (λ q → q lte ℕ[y]) (≡-sym ℕx=ℕ[x])
+          :: (ℕx lte ℕy)                   , cong (_lte_ ℕx) (≡-sym ℕy=ℕ[y])
+          QED
+        )
+
+
+       ℕ[y]≤ℕ[x] =
+        reduceSatisfiedImplication (
+             ((ℕx lte ℕy) ≡ false)        , ℕx-lte-ℕy=false 
+         ::  ((ℕ[x] lte ℕ[y]) ≡ false)    , ≡-trans ℕ[x]-lte-ℕ[y]=ℕx-lte-ℕy 
+         ::  (¬ ((ℕ[x] lte ℕ[y]) ≡ true)) , x=not-b→¬[x=b]
+         ::  (¬ (ℕ[x] ≤ ℕ[y]))             , converse (second lte-decides-≤)
+         ::  (ℕ[y] < ℕ[x])                 , x≰y→y<x
+         ::  (ℕ[y] ≤ ℕ[x])                 , (≤-leq₂ ∘ inl)
+         QED
+        )
+
+
+ -- bad implementation, can we have a better one?
+
+ split-helper : ∀ {i} {A : Set i} → List A → A → (A → A → Bool) → List A → List (List A) → List (List A)
+ split-helper []        Δ _==_ acc1 acc2 = acc2 ++ (acc1 ∷ [])
+ split-helper (a ∷ as) Δ _==_ acc1 acc2 = 
+  if (a == Δ) then 
+   (split-helper as Δ _==_ [] (acc2 ++ (acc1 ∷ []))) 
+  else
+   (split-helper as Δ _==_ (acc1 ++ (a ∷ [])) acc2)
+
  split : ∀ {i} {A : Set i} → List A → A → (A → A → Bool) → List (List A)
- split [] Δ _==_ = []
- split (a ∷ as) Δ _==_ = if (a == Δ) then 
- -}
+ split []         Δ _==_ = []
+ split (a ∷ as)  Δ _==_ =
+  if (a == Δ) then
+   (split-helper as Δ _==_ [] ([] ∷ []))
+  else
+   (split-helper as Δ _==_ (a ∷ []) [])
+   
+ merge : ∀ {i} {A : Set i} → List (List A) → List A
+ merge {i} {A} l = foldr _++_ [] l
+
+ merge-delimited : ∀ {i} {A : Set i} → List (List A) → List A → List A
+ merge-delimited {i} {A} l Δ = foldr (_++_ ∘ (λ q → q ++ Δ)) [] l
 
  {-
- SortingFunction : ∀ {i} (A : Set i) (r : A → A → Bool) → TotalOrder A (λ x y → (r x y) ≡ true) → Set i
- SortingFunction {i} A r O = ∃ f ∈ (List A → Bool) , ((
+ merge-split-lemma : ∀ {i} {A : Set i} → (Δ : A) → (l : List A) → (_==_ : A → A → Bool) → (_==_ decides₂ _≡_) →  (merge-delimited (split l Δ _==_) (Δ ∷ [])) ≡ l
+ merge-split-lemma {i} {A} Δ []        _==_ (==→≡ , ≡→==) =
+  reduceSimplification (
+      (merge-delimited (split [] Δ _==_) (Δ ∷ []))   , refl
+   :: (merge-delimited [] (Δ ∷ []))                  , refl
+   :: (foldr (_++_ ∘  (λ q → q ++ Δ)) [] [])         , refl
+   :: []                                              , refl
+   QED
+  )
+ merge-split-lemma {i} {A} Δ (a ∷ as) _==_ (==→≡ , ≡→==) =
+  reduceSimplification (
+      (merge-delimited (split (a ∷ as) Δ _==_) (Δ ∷ [])) , refl
+   :: (merge-delimited 
+  )
  -}
 
+ isSorted : ∀ {i} {A : Set i} {R : A → A → Set} → TotalOrder R → List A → Set i
+ isSorted {i} {A} {R} O []             = Lift ⊤
+ isSorted {i} {A} {R} O (x ∷ [])      = Lift ⊤
+ isSorted {i} {A} {R} O (x ∷ y ∷ zs) = (R x y) ∧ (isSorted O (y ∷ zs))
+
+ {-
+ For any consecutive indices, m n, R l[m] l[n] 
+ isSorted₂ : ∀ {i} {A : Set i} {R : A → A → Set} → TotalOrder A R → List A → Set i
+ isSorted₂ {i} {A} {R} O l = (m : Fin (length l))
  
+ -- they don't have to be consecutive! forall m, n, such that m ≤ n, l[m] ≤ l[n]
+ -- iow there's an order homomorphism from the set with the list's ordering to the set with the actual ordering. 
+ -}
  
+ SortingFunction : ∀ {i} {A : Set i} {R : A → A → Set} → TotalOrder R → Set i
+ SortingFunction {i} {A} {R} O = ∃ f ∈ (List A → List A) , ((l : List A) → isSorted O (f l))
+ 
+
+
 
 module ModalRewriter where
  open BaseDefinitions.Product
@@ -7750,3 +7879,6 @@ module ModalRewriter where
 -- Lightweight Semiformal Time Complexity Analysis for Purely Functional Data Structures
 -- Nils Anders Danielsson
 -- http://www.cse.chalmers.se/~nad//publications/danielsson-popl2008.html
+
+open BaseDefinitions.BaseTypes.List public
+open ListOperations public
