@@ -213,6 +213,7 @@ module BaseDefinitions where
 
 module BaseResults where
  open BaseDefinitions
+ open BaseDefinitions.Unit
  not-exists↔forall-not : ∀ {i j} {A : Set i} {P : A → Set j} → ((¬ (∃ x ∈ A , P x)) ↔ ((x : A) → ¬ (P x)))
  not-exists↔forall-not {i} {j} {A} {P} = (proof-left , proof-right)
   where
@@ -278,9 +279,44 @@ module BaseResults where
    proof-right : (x : A) → ¬ (P x)
    proof-right x = ω (¬A x)
 
- ∨-map : ∀ {i j k l} {A : Set i} {A' : Set j} {B : Set k} {B' : Set l} → (A → A') → (B → B') → A ∨ B → A' ∨ B'
- ∨-map f g (inl a) = inl (f a)
- ∨-map f g (inr b) = inr (g b)
+ ⊥-∨-lemma : ∀ {i} {A : Set i} → A ∨ ⊥ → A
+ ⊥-∨-lemma {i} {A} (inl a) = a
+ ⊥-∨-lemma {i} {A} (inr ())
+
+ -- would almost be an equivalence relation on the class of inhabited types but it lacks transitivity
+ ∨-semirefl : ∀ {i} {A : Set i} → A → A ∨ A
+ ∨-semirefl a = inl a
+
+ ∨-sym : ∀ {i j} {A : Set i} {B : Set j} → A ∨ B → B ∨ A
+ ∨-sym (inl a) = inr a
+ ∨-sym (inr b) = inl b
+
+ ∨-idem : ∀ {i} {A : Set i} → A ∨ A → A
+ ∨-idem (inl a) = a
+ ∨-idem (inr a) = a
+
+ ∨-ind : ∀ {i j k} {A : Set i} {B : Set j} {C : Set k} → (A → C) → (B → C) → A ∨ B → C
+ ∨-ind f g (inl a) = f a
+ ∨-ind f g (inr b) = g b
+
+
+ ⊤-∧-lemma : ∀ {i} {A : Set i} → A ∧ ⊤ → A
+ ⊤-∧-lemma (a , unit) = a
+
+ ∧-semirefl : ∀ {i} {A : Set i} → A → A ∧ A
+ ∧-semirefl a = a , a
+
+ ∧-idem : ∀ {i} {A : Set i} → A ∧ A → A
+ ∧-idem (a , a') = a
+
+ -- ∧ is at least a partial equivalence relation;
+  -- further, it defines a full equivalence relation on the class of inhabited types
+ ∧-sym : ∀ {i j} {A : Set i} {B : Set j} → A ∧ B → B ∧ A
+ ∧-sym (a , b) = b , a
+
+ ∧-trans : ∀ {i j k} {A : Set i} {B : Set j} {C : Set k} → A ∧ B → B ∧ C → A ∧ C
+ ∧-trans (a , b) (b' , c) = a , c
+
 
 
 module Relations where
@@ -486,6 +522,27 @@ module Containers where
 -- Coq.FSet
 -- Coq.MSet
 -- Coq.Lists.ListSet
+ module Sum where
+  open BaseDefinitions.Sum
+  module Operations where
+   open BaseDefinitions.Equality.Definition
+   open BaseDefinitions.Bool
+   check-inl : ∀ {i j} {A : Set i} {B : Set j} → A ∨ B → Bool
+   check-inl (inl a) = true
+   check-inl (inr b) = false
+
+   check-inr : ∀ {i j} {A : Set i} {B : Set j} → A ∨ B → Bool
+   check-inr (inl a) = false
+   check-inr (inr b) = true
+
+   extract-inl : ∀ {i j} {A : Set i} {B : Set j} → (p : A ∨ B) → (check-inl p) ≡ true → A
+   extract-inl (inl a) p = a
+   extract-inl (inr b) ()
+
+   extract-inr : ∀ {i j} {A : Set i} {B : Set j} → (p : A ∨ B) → (check-inr p) ≡ true → B
+   extract-inr (inl a) ()
+   extract-inr (inr b) p = b
+   
  module Maybe where
   module Definition where
    data Maybe {i} (A : Set i) : Set i where
@@ -570,13 +627,8 @@ module Containers where
  module Vector where
   open BaseDefinitions.Nat
   open BaseDefinitions.Vector
-  module BooleanPredicates where
-   open BaseDefinitions.Bool
-   open Boolean.Operations
+  module Operations where
    open BaseDefinitions.Fin
-   VectorEq : {A : Set} {n : Nat} → (eq : A → A → Bool) → (x y : Vector A n) → Bool 
-   VectorEq eq [] [] = true
-   VectorEq eq (a₁ ∷ as₁) (a₂ ∷ as₂) = if (eq a₁ a₂) then ((VectorEq eq) as₁ as₂) else false
 
    [_] : ∀ {i} {A : Set i} → A → Vector A 1
    [ a ] = a ∷ []
@@ -584,7 +636,15 @@ module Containers where
    _<_> : ∀ {i} {A : Set i} {n : Nat} → Vector A n → Fin n → A
    [] < () >
    (a ∷ as) < zero > = a
-   (a ∷ as) < suc n > = as < n >   
+   (a ∷ as) < suc n > = as < n >
+
+  module BooleanPredicates where
+   open BaseDefinitions.Bool
+   open Boolean.Operations
+   VectorEq : {A : Set} {n : Nat} → (eq : A → A → Bool) → (x y : Vector A n) → Bool 
+   VectorEq eq [] [] = true
+   VectorEq eq (a₁ ∷ as₁) (a₂ ∷ as₂) = if (eq a₁ a₂) then ((VectorEq eq) as₁ as₂) else false
+
 
  module BinTree where
   open BaseDefinitions.Bool
@@ -1289,7 +1349,19 @@ module LogicFunctionProperties where
    h-surj : h isSurjection
    h-surj (inl a') = inl (π₁ (f-surj a')) , cong inl (π₂ (f-surj a'))
    h-surj (inr b') = inr (π₁ (g-surj b')) , cong inr (π₂ (g-surj b'))
-   
+
+ ∨-map : ∀ {i j k l} {A : Set i} {A' : Set j} {B : Set k} {B' : Set l} → (A → A') → (B → B') → A ∨ B → A' ∨ B'
+ ∨-map f g (inl a) = inl (f a)
+ ∨-map f g (inr b) = inr (g b)
+
+
+ ∧-map : ∀ {i j k l} {A : Set i} {B : Set j} {A' : Set k} {B' : Set l} → (A → A') → (B → B') → A ∧ B → A' ∧ B'
+ ∧-map f g (a , b) = f a , g b
+
+ ∃-map : ∀ {i j k l} {A : Set i} {B : A → Set j} {A' : Set k} {B' : A' → Set l} → (f : A → A') → ({a : A} → (B a) → (B' (f a))) → ∃ x ∈ A , (B x) → ∃ x' ∈ A' , (B' x')
+ ∃-map f g (a , b) = f a , g b
+
+
 module BaseArithmetic where
  open BaseDefinitions.BaseTypes.Nat public renaming (Nat to ℕ)
  module Operations where
@@ -1443,6 +1515,19 @@ module BaseArithmetic where
   (suc x) gt 0 = true
   0 gt (suc y) = false
   (suc x) gt (suc y) = x gt y
+
+  ℕ= : ℕ → ℕ → Bool
+  ℕ= 0 0 = true
+  ℕ= (suc n) 0 = false
+  ℕ= 0 (suc m) = false
+  ℕ= (suc n) (suc m) = ℕ= n m
+
+  ℕ≤ : ℕ → ℕ → Bool
+  ℕ≤ 0 0 = true
+  ℕ≤ 0 (suc n) = true
+  ℕ≤ (suc n) 0 = false
+  ℕ≤ (suc n) (suc m) = ℕ≤ n m
+
  open BooleanPredicates
  module BinaryPredicates where
   open Operations
@@ -1721,16 +1806,6 @@ module BaseArithmetic where
   ≤-lemma1 {(suc x)} {(suc y)}   (k , p) = ≡-trans (cong suc (≤-lemma1 {x} {y} (sx≤sy→x≤y (k , p)))) (≡-sym (sx+y=x+sy x (diff x y)))
 
 
-  ∧-sym : ∀ {i j} {A : Set i} {B : Set j} → A ∧ B → B ∧ A
-  ∧-sym (a , b) = b , a
-
-  ∧-trans : ∀ {i j k} {A : Set i} {B : Set j} {C : Set k} → A ∧ B → B ∧ C → A ∧ C
-  ∧-trans (a , b) (b' , c) = a , c
-
-  ∨-sym : ∀ {i j} {A : Set i} {B : Set j} → A ∨ B → B ∨ A
-  ∨-sym (inl a) = inr a
-  ∨-sym (inr b) = inl b
-  
   ≤-range-trichotomy : (x y z : ℕ) → x ≤ z → (y < x) ∨ (((x ≤ y) ∧ (y ≤ z)) ∨ (z < y))
   ≤-range-trichotomy x y z p = proof
    where
@@ -1885,10 +1960,6 @@ module BaseArithmetic where
   diff-triangle₃' : {x y z : ℕ} → (x ≤ z) → (z < y) →  (diff x z) ≤ ((diff x y) + (diff y z))
   diff-triangle₃' {x} {y} {z} p q = (((diff y z) * 2) , diff-triangle₃ p q)
 
-  ∨-ind : ∀ {i j k} {A : Set i} {B : Set j} {C : Set k} → (A → C) → (B → C) → A ∨ B → C
-  ∨-ind f g (inl a) = f a
-  ∨-ind f g (inr b) = g b
-
 
   diff-triangle : (x y z : ℕ) → (diff x z) ≤ ((diff x y) + (diff y z))
   diff-triangle x y z = ∨-ind f (g ∘ f) (≤-total x z)  -- x ≤ z ∨ z ≤ x
@@ -1942,9 +2013,9 @@ module Containers2 where
    remove {i} {A} {suc n} (a ∷ as) zero = as
    remove {i} {A} {suc n} (a ∷ as) (suc x) = a ∷ (remove as x)
 
-   Vector++ : ∀ {i} {A : Set i} {m n : Nat} → Vector A m → Vector A n → Vector A (m + n)
-   Vector++ {i} {A} {0}     {n} []        v2 = coerce v2 (cong (Vector A) (x=0+x n))
-   Vector++ {i} {A} {suc m} {n} (a ∷ as) v2 = coerce (a ∷ (Vector++ as v2)) (cong (Vector A) (x+sy=sx+y m n))
+   _++_ : ∀ {i} {A : Set i} {m n : Nat} → Vector A m → Vector A n → Vector A (m + n)
+   _++_ {i} {A} {0}     {n} []        v2 = coerce v2 (cong (Vector A) (x=0+x n))
+   _++_ {i} {A} {suc m} {n} (a ∷ as) v2 = coerce (a ∷ (as ++ v2)) (cong (Vector A) (x+sy=sx+y m n))
 
 module BaseAbstractAlgebra where
  open Functions
@@ -6580,6 +6651,7 @@ module Character where
  open Boolean.Complex
  open BaseDefinitions.Nat
  open BaseArithmetic.Operations
+ open BaseArithmetic.BooleanPredicates
  open BaseDefinitions.Vector
  open Containers.Vector.BooleanPredicates
  open Containers.Maybe.Definition
@@ -6603,18 +6675,6 @@ module Character where
  Char≤ (true ∷ v) (false ∷ w) = false
  Char≤ (false ∷ v) (true ∷ w) = true
  Char≤ (false ∷ v) (false ∷ w) = Char≤ v w
-
- NatEq : Nat → Nat → Bool
- NatEq 0 0 = true
- NatEq (suc n) 0 = false
- NatEq 0 (suc m) = false
- NatEq (suc n) (suc m) = NatEq n m
-
- Nat≤ : Nat → Nat → Bool
- Nat≤ 0 0 = true
- Nat≤ 0 (suc n) = true
- Nat≤ (suc n) 0 = false
- Nat≤ (suc n) (suc m) = Nat≤ n m
 
  zeroVec : (n : Nat) → Vector Bool n
  zeroVec 0 = []
@@ -6663,7 +6723,7 @@ module Character where
 
  mkRange : Nat × Nat → Maybe (Vector Bool 8 → Bool)
  mkRange (m , n) =
-  if (Nat≤ m n) then
+  if (m lte n) then
    (dite (checkMaybe (NatToChar m))
    (λ p → (dite (checkMaybe (NatToChar n))
    (λ q → Just (λ c → (Char≤ (extractMaybe (NatToChar m) p) c) and (Char≤ c (extractMaybe (NatToChar n) q))))
@@ -6885,11 +6945,12 @@ module ListOperations where
  open Decidability
  open Functions.Special
  open Functions.Composition.Definition
+ open Functions.Predicates
+ open Functions.Bijections
  open Relations.BinaryRelations.Properties.Transitivity
+ open BaseDefinitions.BaseTypes.Vector
+ open LogicFunctionProperties
  
- ∧-map : ∀ {i j k l} {A : Set i} {B : Set j} {A' : Set k} {B' : Set l} → (A → A') → (B → B') → A ∧ B → A' ∧ B'
- ∧-map f g (a , b) = f a , g b
-
  _∈_ : ∀ {i} {A : Set i} → A → List A → Set i
  x ∈ []        = Lift ⊥ 
  x ∈ (a ∷ as) = (x ≡ a) ∨ (x ∈ as)
@@ -6900,42 +6961,33 @@ module ListOperations where
  ListIn₂ : ∀ {i} {A : Set i} → A → List A → Set i
  ListIn₂ x l = ∃ n ∈ (Fin (length l)) , ((l < n >) ≡ x)
 
- ⊥-∨-lemma : ∀ {i} {A : Set i} → A ∨ ⊥ → A
- ⊥-∨-lemma {i} {A} (inl a) = a
- ⊥-∨-lemma {i} {A} (inr ())
-
  ListIn₂-lemma : ∀ {i} {A : Set i} (l : List A) (n : Fin (length l)) (x : A) → ((l < n >) ≡ ((x ∷ l) < n +1 >))
  ListIn₂-lemma []        ()
  ListIn₂-lemma (a ∷ as) n    x = refl
 
- {-
- ∈-lemma : ∀ {i} {A : Set i} → (x : A) → (l : List A) → 
- -}
 
- {-
  ∈→ListIn₂ : ∀ {i} {A : Set i} → (x : A) → (l : List A) → x ∈ l → ListIn₂ x l
- ∈→ListIn₂ x [] ()
+ ∈→ListIn₂ x []        ()
  ∈→ListIn₂ x (a ∷ as) (inl p) = (zero , (≡-sym p))
- ∈→ListIn₂ x (a ∷ as) (inr p) = ∧-map _+1 id (∈→ListIn₂ x as p)
- -}
- {-
-  where
-   recurse = ∈→ListIn₂ x as p
- -}
- {-
+ ∈→ListIn₂ x (a ∷ as) (inr p) = ∃-map _+1 id (∈→ListIn₂ x as p)
+
+ ListIn₂→∈ : ∀ {i} {A : Set i} → (x : A) → (l : List A) → ListIn₂ x l → x ∈ l
+ ListIn₂→∈ x []        (() , p)
+ ListIn₂→∈ x (a ∷ as) (zero   , p) = inl (≡-sym p)
+ ListIn₂→∈ x (a ∷ as) ((n +1) , p) = inr (ListIn₂→∈ x as (n , p)) 
+
  ListIn→ListIn₂ : ∀ {i} {A : Set i} → (x : A) → (l : List A) → ListIn x l → ListIn₂ x l
  ListIn→ListIn₂ x []        ()
  ListIn→ListIn₂ x (a ∷ as) (inl p) = (zero , (≡-sym p))
- ListIn→ListIn₂ x (a ∷ as) (inr p) = (((first recurse) +1) , second recurse)
+ ListIn→ListIn₂ x (a ∷ as) (inr p) = (((π₁ recurse) +1) , π₂ recurse)
   where
    recurse : ListIn₂ x as
    recurse = ListIn→ListIn₂ x as p
- -}
- {-
-   first recurse : Fin (length as)
-   second recurse : as < (first recurse) > ≡ x
-    
- -}
+
+ ListIn₂→ListIn : ∀ {i} {A : Set i} → (x : A) → (l : List A) → ListIn₂ x l → ListIn x l
+ ListIn₂→ListIn x [] (() , p)
+ ListIn₂→ListIn x (a ∷ as) (zero , p) = inl (≡-sym p)
+ ListIn₂→ListIn x (a ∷ as) ((n +1) , p) = inr (ListIn₂→ListIn x as (n , p))
 
  {-
  _∈_,_times : ∀ {i} {A : Set i} → A → List A → Set i
@@ -7094,7 +7146,7 @@ module ListOperations where
 
 
  Fin-coerce-lemma : {m n : Nat} → (p : m ≡ n) → (x : Fin m) → (Fin→Nat x) ≡ (Fin→Nat (coerce x (cong Fin p)))
- Fin-coerce-lemma {zero} {n}    p  ()
+ Fin-coerce-lemma {zero} {n}    p     ()
  Fin-coerce-lemma {m +1} {zero} ()
  Fin-coerce-lemma {m +1} {n +1} refl  zero = refl
  Fin-coerce-lemma {m +1} {n +1} refl  (x +1) = refl
@@ -7196,10 +7248,10 @@ module ListOperations where
   )
  -}
 
- isSorted : ∀ {i} {A : Set i} {R : A → A → Set} → TotalOrder R → List A → Set i
- isSorted {i} {A} {R} O []             = Lift ⊤
- isSorted {i} {A} {R} O (x ∷ [])      = Lift ⊤
- isSorted {i} {A} {R} O (x ∷ y ∷ zs) = (R x y) ∧ (isSorted O (y ∷ zs))
+ isSorted : ∀ {i j} {A : Set i} {R : A → A → Set j} → TotalOrder R → List A → Set (i ⊔ j)
+ isSorted {i} {j} {A} {R} O []             = Lift ⊤
+ isSorted {i} {j} {A} {R} O (x ∷ [])      = Lift ⊤
+ isSorted {i} {j} {A} {R} O (x ∷ y ∷ zs) = (R x y) ∧ (isSorted O (y ∷ zs))
 
  {-
  For any consecutive indices, m n, R l[m] l[n] 
@@ -7210,10 +7262,106 @@ module ListOperations where
  -- iow there's an order homomorphism from the set with the list's ordering to the set with the actual ordering. 
  -}
  
- SortingFunction : ∀ {i} {A : Set i} {R : A → A → Set} → TotalOrder R → Set i
- SortingFunction {i} {A} {R} O = ∃ f ∈ (List A → List A) , ((l : List A) → isSorted O (f l))
- 
+ SortingFunction : ∀ {i j} {A : Set i} {R : A → A → Set j} → TotalOrder R → Set (i ⊔ j)
+ SortingFunction {i} {j} {A} {R} O = ∃ f ∈ (List A → List A) , ((l : List A) → isSorted O (f l))
 
+ -- we know it's a comparison-sorting function because the only thing it has available to appeal to is the
+ -- relation and the fact that it's an order, and it must behave polymorphic from this alone.
+ ComparisonSortingFunction : ∀ {i j} → Set ((lsuc i) ⊔ (lsuc j))
+ ComparisonSortingFunction {i} {j} = ∃ sort ∈ ((A : Set i) → (R : A → A → Set j) → (O : TotalOrder R) → List A → List A) , ((A : Set i) → (R : A → A → Set j) → (O : TotalOrder R) → (l : List A) → isSorted O (sort A R O l))
+
+ ListPermutation : Nat → Set
+ ListPermutation n = (Fin n) hasBijectionWith (Fin n)
+ -- the bijection maps each Fin n to a new Fin n, or each list position to a new list position
+ -- you can invert the bijection and get a function Fin n -> A
+
+ ListPermute : ∀ {i} {A : Set i} → (l : List A) → ListPermutation (length l)  → (Fin (length l)) → A
+ ListPermute {i} {A} []        p           ()
+ ListPermute {i} {A} (a ∷ as) (f , f-bij) x  = (a ∷ as) < (length as) - ((π₁ (Bij-inv f f-bij)) x) > 
+ -- subtract from the length-1 because we're counting from the bottom of the list
+
+ next : ∀ {i} {A : Set i} {n : Nat} → (Fin (n +1) → A) → Fin n → A
+ next {i} {A} {n} f x = f (Fin[n]→Fin[n+1] x)
+
+ FinFunc→List : ∀ {i} {A : Set i} {n : Nat} → (Fin n → A) → List A
+ FinFunc→List {i} {A} {0}    f = []
+ FinFunc→List {i} {A} {n +1} f = (f (n→Fin[n+1] n)) ∷ (FinFunc→List {i} {A} {n} (next f))
+
+ RunPermutation : ∀ {i} {A : Set i} → (l : List A) → ListPermutation (length l) → List A
+ RunPermutation {i} {A} l p = FinFunc→List (ListPermute l p)
+ 
+ {-
+ 0 → 1
+ 1 → 2
+ 2 → 0       
+
+ 0 → 2
+ 1 → 0
+ 2 → 1
+ -}
+ MyPermutation : (Fin 3) hasBijectionWith (Fin 3)
+ MyPermutation = (permutation , (permutation-injection , permutation-surjection))
+  where
+   permutation : Fin 3 → Fin 3
+   permutation zero = zero +1
+   permutation (zero +1) = (zero +1) +1
+   permutation ((zero +1) +1) = zero
+   permutation (((() +1) +1) +1)
+
+   permutation-injection : {x y : Fin 3} → (permutation x) ≡ (permutation y) → x ≡ y
+   permutation-injection {zero} {zero} p = refl
+   permutation-injection {zero +1} {zero +1} p = refl
+   permutation-injection {(zero +1) +1} {(zero +1) +1} p = refl
+   permutation-injection {zero} {zero +1} ()
+   permutation-injection {zero} {(zero +1) +1} ()
+   permutation-injection {zero +1} {zero} ()
+   permutation-injection {(zero +1) +1} {zero} ()
+   permutation-injection {zero +1} {(zero +1) +1} ()
+   permutation-injection {(zero +1) +1} {zero +1} ()
+   permutation-injection {((() +1) +1) +1}
+   permutation-injection {x} {((() +1) +1) +1}
+
+   permutation-surjection : (y : Fin 3) → ∃ x ∈ (Fin 3) , (permutation x ≡ y)
+   permutation-surjection zero = (((zero +1) +1) , refl)
+   permutation-surjection (zero +1) = (zero , refl)
+   permutation-surjection ((zero +1) +1) = ((zero +1) , refl)
+   permutation-surjection (((() +1) +1) +1)
+
+ -- every stable sorting function is extensionally equivalent;
+  -- every sorted list in the same "stability class" is equal
+ -- every sorted list L defines a total order on Fin (length L)
+ -- every list can be sorted
+ -- define whether a list is a permutation of another list
+ -- list A is the sorted version of list B if A is sorted and is a permutation of B
+ MonotoneFunction : ∀ {i j k l} {A : Set i} {B : Set j} {R : A → A → Set k} {R' : B → B → Set l} → (O : PartialOrder R) → (O' : PartialOrder R') → (f : A → B) → Set (i ⊔ (k ⊔ l))
+ MonotoneFunction {i} {j} {k} {l} {A} {B} {R} {R'} O O' f = {x y : A} → R x y → R' (f x) (f y)
+
+ OrderPreservingFunction : ∀ {i j k l} {A : Set i} {B : Set j} {R : A → A → Set k} {R' : B → B → Set l} → (O : PartialOrder R) → (O' : PartialOrder R') → (f : A → B) → Set (i ⊔ (k ⊔ l))
+ OrderPreservingFunction = MonotoneFunction
+
+ OrderReflectingFunction : ∀ {i j k l} {A : Set i} {B : Set j} {R : A → A → Set k} {R' : B → B → Set l} → (O : PartialOrder R) → (O' : PartialOrder R') → (f : A → B) → Set (i ⊔ (k ⊔ l))
+ OrderReflectingFunction {i} {j} {k} {l} {A} {B} {R} {R'} O O' f = {x y : A} → R x y → R' (f y) (f x)
+
+ OrderEmbedding : ∀ {i j k l} {A : Set i} {B : Set j} {R : A → A → Set k} {R' : B → B → Set l} → (O : PartialOrder R) → (O' : PartialOrder R') → (f : A → B) → Set (i ⊔ (k ⊔ l))
+ OrderEmbedding {i} {j} {k} {l} {A} {B} {R} {R'} O O' f = ({x y : A} → R x y → R' (f x) (f y)) ∧ ({x y : A} → R' (f x) (f y) → R x y)
+ {-
+ sortOrderLemma : ∀ {i} {A : Set i} {R : A → A → Set j} (O : TotalOrder R) → (l : List A) → isSorted O l → ∃ R' ∈ ((Fin (length l)) → (Fin (length l)) → Set j) , ((TotalOrder R') ∧ ((m n : Fin (length l)) → (R' m n) → R (l < m >) (l < n >)) ∧ (
+ -} 
+
+ -- quicksort
+ -- heapsort
+ -- shellsort
+ -- merge sort
+ -- introsort
+ -- insertion sort
+ -- selection sort
+ -- bubble sort
+ -- odd-even sort
+ -- cocktail shaker sort
+ -- cycle sort
+ -- smooth sort
+ -- timsort
+ 
 
 
 module ModalRewriter where
@@ -7236,15 +7384,18 @@ module ModalRewriter where
  open BaseArithmetic.Operations hiding (_+_)
  open BaseArithmetic.FinOperations hiding (_-_)
  open BaseArithmetic.Results
+ open BaseArithmetic.BooleanPredicates
  open Containers.Maybe.Definition
  open Containers.Maybe.BooleanPredicates
  open Containers.Maybe.Complex
  open Containers.List.BooleanPredicates hiding (find)
- open Containers.Vector.BooleanPredicates hiding ([_])
+ open Containers.Vector.Operations renaming ([_] to Vec[_])
+ open Containers.Vector.BooleanPredicates
  open Containers.BinTree hiding (store)
  open Character
  open String
- open Containers2.Vector.Operations renaming (remove to VectorRemove)
+ open Containers2.Vector.Operations renaming (remove to VectorRemove ; _++_ to Vec++)
+ open Containers.Sum.Operations
 
  -- rule = pair(input-pattern , output-pattern)
  -- ruleset = list of rules
@@ -7261,7 +7412,7 @@ module ModalRewriter where
  TokenEq : Token → Token → Bool
  TokenEq (const c) (const d) = StringEq c d
  TokenEq (const c) x         = false
- TokenEq (var   v) (var   w) = NatEq v w
+ TokenEq (var   v) (var   w) = ℕ= v w
  TokenEq (var   v) x         = false
   
  data AST : Set where
@@ -7377,22 +7528,6 @@ module ModalRewriter where
 
  find-checkLemma2 : {A : Set} {n : Nat} → (v : Vector Bool n) → (s : (BinTree (A ∨ (Vector Bool n)) n)) → (find-check v (retrieve s v)) ≡ false → ∃ w ∈ (Vector Bool n) , ((retrieve s v) ≡ (inr w))
  find-checkLemma2 {A} {n} v s p = find-checkLemma v (retrieve s v) p
-
- check-inl : ∀ {i j} {A : Set i} {B : Set j} → A ∨ B → Bool
- check-inl (inl a) = true
- check-inl (inr b) = false
-
- check-inr : ∀ {i j} {A : Set i} {B : Set j} → A ∨ B → Bool
- check-inr (inl a) = false
- check-inr (inr b) = true
-
- extract-inl : ∀ {i j} {A : Set i} {B : Set j} → (p : A ∨ B) → (check-inl p) ≡ true → A
- extract-inl (inl a) p = a
- extract-inl (inr b) ()
-
- extract-inr : ∀ {i j} {A : Set i} {B : Set j} → (p : A ∨ B) → (check-inr p) ≡ true → B
- extract-inr (inl a) ()
- extract-inr (inr b) p = b
  
 
  find-helper : {A : Set} {n : Nat} → BinTree (A ∨ (Vector Bool n)) n → Vector Bool n → List (Vector Bool n) → Nat → Maybe ((Vector Bool n) × (List (Vector Bool n)))
@@ -7880,5 +8015,245 @@ module ModalRewriter where
 -- Nils Anders Danielsson
 -- http://www.cse.chalmers.se/~nad//publications/danielsson-popl2008.html
 
+module x86 where
+ open BaseDefinitions.Bool renaming (true to 𝟙 ; false to 𝟘)
+ open BaseDefinitions.Nat
+ open BaseDefinitions.List
+ open BaseDefinitions.Vector
+ open Character
+ open Containers.List.Operations
+ open Containers2.Vector.Operations renaming (_++_ to Vec++)
+
+ Byte : Set
+ Byte = Vector Bool 8
+
+ module x86_64₁ where
+  -- BIOS
+
+  data HexDigit : Set where
+   #0 : HexDigit
+   #1 : HexDigit
+   #2 : HexDigit
+   #3 : HexDigit
+   #4 : HexDigit
+   #5 : HexDigit
+   #6 : HexDigit
+   #7 : HexDigit
+   #8 : HexDigit
+   #9 : HexDigit
+   #A : HexDigit
+   #B : HexDigit
+   #C : HexDigit
+   #D : HexDigit
+   #E : HexDigit
+   #F : HexDigit
+
+  encodeHexDigit : HexDigit → Vector Bool 4
+  encodeHexDigit #0 = 𝟘 ∷ 𝟘 ∷ 𝟘 ∷ 𝟘 ∷ []
+  encodeHexDigit #1 = 𝟘 ∷ 𝟘 ∷ 𝟘 ∷ 𝟙 ∷ []
+  encodeHexDigit #2 = 𝟘 ∷ 𝟘 ∷ 𝟙 ∷ 𝟘 ∷ []
+  encodeHexDigit #3 = 𝟘 ∷ 𝟘 ∷ 𝟙 ∷ 𝟙 ∷ []
+  encodeHexDigit #4 = 𝟘 ∷ 𝟙 ∷ 𝟘 ∷ 𝟘 ∷ []
+  encodeHexDigit #5 = 𝟘 ∷ 𝟙 ∷ 𝟘 ∷ 𝟙 ∷ []
+  encodeHexDigit #6 = 𝟘 ∷ 𝟙 ∷ 𝟙 ∷ 𝟘 ∷ []
+  encodeHexDigit #7 = 𝟘 ∷ 𝟙 ∷ 𝟙 ∷ 𝟙 ∷ []
+  encodeHexDigit #8 = 𝟙 ∷ 𝟘 ∷ 𝟘 ∷ 𝟘 ∷ []
+  encodeHexDigit #9 = 𝟙 ∷ 𝟘 ∷ 𝟘 ∷ 𝟙 ∷ []
+  encodeHexDigit #A = 𝟙 ∷ 𝟘 ∷ 𝟙 ∷ 𝟘 ∷ []
+  encodeHexDigit #B = 𝟙 ∷ 𝟘 ∷ 𝟙 ∷ 𝟙 ∷ []
+  encodeHexDigit #C = 𝟙 ∷ 𝟙 ∷ 𝟘 ∷ 𝟘 ∷ []
+  encodeHexDigit #D = 𝟙 ∷ 𝟙 ∷ 𝟘 ∷ 𝟙 ∷ []
+  encodeHexDigit #E = 𝟙 ∷ 𝟙 ∷ 𝟙 ∷ 𝟘 ∷ []
+  encodeHexDigit #F = 𝟙 ∷ 𝟙 ∷ 𝟙 ∷ 𝟙 ∷ []
+
+  decodeHexDigit : Vector Bool 4 → HexDigit
+  decodeHexDigit (𝟘 ∷ 𝟘 ∷ 𝟘 ∷ 𝟘 ∷ []) = #0
+  decodeHexDigit (𝟘 ∷ 𝟘 ∷ 𝟘 ∷ 𝟙 ∷ []) = #1
+  decodeHexDigit (𝟘 ∷ 𝟘 ∷ 𝟙 ∷ 𝟘 ∷ []) = #2
+  decodeHexDigit (𝟘 ∷ 𝟘 ∷ 𝟙 ∷ 𝟙 ∷ []) = #3
+  decodeHexDigit (𝟘 ∷ 𝟙 ∷ 𝟘 ∷ 𝟘 ∷ []) = #4
+  decodeHexDigit (𝟘 ∷ 𝟙 ∷ 𝟘 ∷ 𝟙 ∷ []) = #5
+  decodeHexDigit (𝟘 ∷ 𝟙 ∷ 𝟙 ∷ 𝟘 ∷ []) = #6
+  decodeHexDigit (𝟘 ∷ 𝟙 ∷ 𝟙 ∷ 𝟙 ∷ []) = #7
+  decodeHexDigit (𝟙 ∷ 𝟘 ∷ 𝟘 ∷ 𝟘 ∷ []) = #8
+  decodeHexDigit (𝟙 ∷ 𝟘 ∷ 𝟘 ∷ 𝟙 ∷ []) = #9
+  decodeHexDigit (𝟙 ∷ 𝟘 ∷ 𝟙 ∷ 𝟘 ∷ []) = #A
+  decodeHexDigit (𝟙 ∷ 𝟘 ∷ 𝟙 ∷ 𝟙 ∷ []) = #B
+  decodeHexDigit (𝟙 ∷ 𝟙 ∷ 𝟘 ∷ 𝟘 ∷ []) = #C
+  decodeHexDigit (𝟙 ∷ 𝟙 ∷ 𝟘 ∷ 𝟙 ∷ []) = #D
+  decodeHexDigit (𝟙 ∷ 𝟙 ∷ 𝟙 ∷ 𝟘 ∷ []) = #E
+  decodeHexDigit (𝟙 ∷ 𝟙 ∷ 𝟙 ∷ 𝟙 ∷ []) = #F
+
+  #[_,_] : HexDigit → HexDigit → Byte
+  #[_,_] h₁ h₂ = Vec++ (encodeHexDigit h₁) (encodeHexDigit h₂)
+
+
+  magicNumber : Vector Byte 2
+  magicNumber = #[ #5 , #5 ] ∷ #[ #A , #A ] ∷ [] 
+
+  bootLocation : Vector Byte 4
+  bootLocation = #[ #0 , #0 ] ∷ #[ #0 , #0 ] ∷ #[ #7 , #C ] ∷ #[ #0 , #6 ] ∷ []
+
+  resetVector : Vector Byte 4
+  resetVector = #[ #0 , #0 ] ∷ #[ #0 , #0 ] ∷ #[ #F , #F ] ∷ #[ #F , #F ] ∷ []
+
+  data Registers8Abstract : Set where
+   AL : Registers8Abstract
+   AH : Registers8Abstract
+   BL : Registers8Abstract
+   BH : Registers8Abstract
+
+  data Registers16Abstract : Set where
+   AX : Registers16Abstract
+   BX : Registers16Abstract
+   SP : Registers16Abstract
+   DS : Registers16Abstract
+   SS : Registers16Abstract
+
+  data Registers64Abstract : Set where
+   IP : Registers64Abstract
+
+
+  data InterruptsAbstract : Set where
+   10h : InterruptsAbstract
+   16h : InterruptsAbstract
+  {-
+    fa                                            CLI = CLEAR INTERRUPT FLAG
+
+    -- some BIOSs start at 07c0:0000 ?
+    -- ensure that we're at 0000:7c06
+    ea 067c 0000                                  JMPF to 0000:7c60
+    31c0                                          XOR AX, AX -> AX
+    8ed8                                          MOV AX -> DS
+    8ed0                                          MOV AX -> SS
+    bc0020                                        MOV 2000 -> SP
+    fb                                            STI = SET INTERRUPT FLAG
+    be2a 7c                                       MOV m[7C2A] -> AL
+    bb 0100                                       MOV BX := 0100;
+    b40e                                          MOV AH := 0e
+    7502                                          JNZ +02
+                                                  JMP jmp2
+
+    -- jmp1
+    cd10                                          INT 10h -- print char?
+                              -- AH = 0x0E; teletype
+                              -- AL = character
+                              -- BH = page #;
+                                 -- 00 ?
+                              -- BL = color (only in graphic mode)
+                                 -- 01 ?
+    -- jmp2
+    ac                                            LODSB
+    3c 00                                         CMP AL 00
+    75 f9                                         JNZ -7
+                                                  JMP jmp1
+
+    b400                                          MOV AH 00
+    cd 16                                         INT 16h -- read keyboard?
+                               -- AH = 0x00;
+    ea 0000 ffff                                  JMPF to 0000:ffff  -- Jump to reset vector
+
+    7374 6f6f 706b  6964 4f53                     "stoopkidOS"
+
+
+  -}
+
+  data AssemblyInstruction : Set where
+   CLI : AssemblyInstruction
+   STI : AssemblyInstruction
+   JMPF : Vector Byte 4 → AssemblyInstruction
+   XOR,AX/AX : AssemblyInstruction
+   MOV,imm→AH : Byte → AssemblyInstruction
+   MOV,imm→BX : Vector Byte 2 → AssemblyInstruction
+   MOV,AX→DS : AssemblyInstruction
+   MOV,AX→SS : AssemblyInstruction
+   MOV,imm→SP : Vector Byte 2 → AssemblyInstruction
+   MOV,mem→AL : Vector Byte 2 → AssemblyInstruction
+   CMP,AL/imm : Byte → AssemblyInstruction
+   LODSB : AssemblyInstruction
+   INT : InterruptsAbstract → AssemblyInstruction
+   JNZ : Byte → AssemblyInstruction
+   PAD : Nat → AssemblyInstruction
+   BYTES : List Byte → AssemblyInstruction
+
+
+  Assembly : Set
+  Assembly = List AssemblyInstruction
+  
+  INT→Byte : InterruptsAbstract → Byte
+  INT→Byte 10h = #[ #1 , #0 ]
+  INT→Byte 16h = #[ #1 , #6 ]
+
+  assembleInstruction : AssemblyInstruction → List Byte
+  assembleInstruction (CLI)           = #[ #F , #A ] ∷ []
+  assembleInstruction (STI)           = #[ #F , #B ] ∷ []
+  assembleInstruction (JMPF x)        = (#[ #E , #A ] ∷ []) ++ (toList x)
+  assembleInstruction (XOR,AX/AX)     = #[ #3 , #1 ] ∷ #[ #C , #0 ] ∷ []
+  assembleInstruction (MOV,imm→AH x) = #[ #B , #4 ] ∷ x ∷ []
+  assembleInstruction (MOV,imm→BX x) = (#[ #B , #B ] ∷ []) ++ (toList x)
+  assembleInstruction (MOV,AX→DS)    = #[ #8 , #E ] ∷ #[ #D , #8 ] ∷ []
+  assembleInstruction (MOV,AX→SS)    = #[ #8 , #E ] ∷ #[ #D , #0 ] ∷ []
+  assembleInstruction (MOV,imm→SP x) = (#[ #B , #C ] ∷ []) ++ (toList x)
+  assembleInstruction (MOV,mem→AL x) = (#[ #B , #E ] ∷ []) ++ (toList x)
+  assembleInstruction (CMP,AL/imm x)  = #[ #3 , #C ] ∷ x ∷ []
+  assembleInstruction (LODSB)         = #[ #A , #C ] ∷ []
+  assembleInstruction (INT x)         = #[ #C , #D ] ∷ (INT→Byte x) ∷ []
+  assembleInstruction (JNZ x)         = #[ #7 , #5 ] ∷ x ∷ []
+  assembleInstruction (PAD 0)         = []
+  assembleInstruction (PAD (suc n))   = #[ #0 , #0 ] ∷ (assembleInstruction (PAD n))
+  assembleInstruction (BYTES x)       = x
+
+  assemble : Assembly → List Byte
+  assemble [] = []
+  assemble (instruction ∷ instructions) = (assembleInstruction instruction) ++ (assemble instructions)
+
+  MBR : Set
+  MBR = Vector Byte 512
+
+  myMBRAssembly : Assembly
+  myMBRAssembly =
+   -- init
+      CLI      
+   ∷ (JMPF (#[ #0 , #6 ] ∷ #[ #7 , #C ] ∷ #[ #0 , #0 ] ∷ #[ #0 , #0 ] ∷ []))
+   ∷ XOR,AX/AX
+   ∷ MOV,AX→DS
+   ∷ MOV,AX→SS
+   ∷ (MOV,imm→SP (#[ #0 , #0 ] ∷ #[ #2 , #0 ] ∷ []))
+   ∷ STI
+
+   -- print "stoopkidOS"
+   ∷ (MOV,mem→AL (#[ #2 , #A ] ∷ #[ #7 , #C ] ∷ []))
+   ∷ (MOV,imm→BX (#[ #0 , #1 ] ∷ #[ #0 , #0 ] ∷ []))
+   ∷ (MOV,imm→AH #[ #0 , #E ])
+   ∷ (JNZ #[ #0 , #2 ])
+   ∷ (INT 10h)
+   ∷ LODSB
+   ∷ (CMP,AL/imm #[ #0 , #0 ])
+   ∷ (JNZ #[ #F , #9 ])
+
+   -- wait for keypress
+   ∷ (MOV,imm→AH #[ #0 , #0 ])
+   ∷ (INT 16h)
+
+   -- reset
+   ∷ (JMPF (#[ #0 , #0 ] ∷ #[ #0 , #0 ] ∷ #[ #F , #F ] ∷ #[ #F , #F ] ∷ []))
+   
+   -- string: "stoopkidOS"
+   ∷ (BYTES (#[ #7 , #3 ] ∷ #[ #7 , #4 ] ∷ #[ #6 , #F ] ∷ #[ #6 , #F ] ∷ #[ #7 , #0 ] ∷ #[ #6 , #B ] ∷ #[ #6 , #9 ] ∷ #[ #6 , #4 ] ∷ #[ #4 , #F ] ∷ #[ #5 , #3 ] ∷ []))
+
+   -- padding
+   ∷ (PAD 458)
+
+   -- magic #
+   ∷ (BYTES (#[ #5 , #5 ] ∷ #[ #A , #A ] ∷ []))
+   ∷ []
+
+open BaseDefinitions.Product public
+open BaseDefinitions.Fin public
+open BaseDefinitions.Nat public
 open BaseDefinitions.BaseTypes.List public
 open ListOperations public
+open Functions.Bijections public
+open BaseArithmetic.BooleanPredicates public
+open x86.x86_64₁ public
+open Containers.List.Operations public
